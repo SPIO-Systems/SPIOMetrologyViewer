@@ -1,4 +1,4 @@
-# DirtSearcher5000
+# SPIOMetrologyViewer
 
 Finds dirt and defects in microscope images of the devices on a wafer, using classical image
 processing plus hand-set rules. No training data is needed. Every detection is saved as a crop
@@ -15,11 +15,11 @@ One-time setup on a PC:
 
 1. Install [Git for Windows](https://git-scm.com) and [Python 3.14](https://www.python.org/downloads/)
    (keep "py launcher" ticked).
-2. In the Nextcloud desktop client, sync the shared `DirtSearcher` folder.
+2. In the Nextcloud desktop client, sync the shared `24 SPIOMetrologyViewer` folder.
 3. Clone the code to a short path, e.g. in a command prompt:
    `cd %USERPROFILE%\Documents` then `git clone https://github.com/SPIO-Victor/SPIOMetrologyViewer.git`.
 4. Double-click `start.bat` in the clone. The first start installs the Python packages (about
-   2 minutes). Then it asks for the workspace: choose the Nextcloud `DirtSearcher` folder. The
+   2 minutes). Then it asks for the workspace: choose the Nextcloud `24 SPIOMetrologyViewer` folder. The
    choice is saved in `settings.yaml` in the clone. Delete that file to choose again.
 
 After that, start the program with `start.bat` (make a desktop shortcut to it). Every start fetches
@@ -39,13 +39,13 @@ Working together:
 
 Commit and push to `main` (PyCharm: Git → Commit / Push). Colleagues get the change the next time
 they start the program. When a change can alter the results, bump `__version__` in
-`dirtsearcher/__init__.py`. It goes into `results.csv` as `code_version`, and Statistics warns when
+`spiometrologyviewer/__init__.py`. It goes into `results.csv` as `code_version`, and Statistics warns when
 the ticked wafers were made with different versions (`?` = before versions were recorded).
 
 When adding a package, add it with its version to `requirements.txt`. `workspace_template/` holds
 the defaults for a new, empty workspace. The live configs and tolerances are those in the workspace.
 
-Where the workspace is found: the environment variable `DIRTSEARCHER_WORKSPACE`, else
+Where the workspace is found: the environment variable `SPIOMETROLOGYVIEWER_WORKSPACE`, else
 `settings.yaml` (`workspace: <folder>`), else the repo folder itself. Data in the repo folder is
 ignored by git (see `.gitignore`).
 
@@ -66,7 +66,7 @@ listed in `measurements.yaml`:
 Per type:
 
 - `configs/<type>.yaml`: pipeline parameters. `analysis:` sets which analysis runs (`mirror`,
-  `lens`, `alignment`, `grating`, `p3_mirror`; see `dirtsearcher/analyses.py`). The P2 configs
+  `lens`, `alignment`, `grating`, `p3_mirror`; see `spiometrologyviewer/analyses.py`). The P2 configs
   have no `analysis` key and use `region: "mirror"` / `"lens"` instead. Each config file is also
   the template it is saved from (it keeps the comments).
 - `tolerances/<type>.yaml`: pass / warn / fail cutoffs.
@@ -88,9 +88,9 @@ the wafer is then named after the `*` folder.
 `start.bat` starts the GUI. From a command prompt in the clone (after `start.bat` has set up `.venv`):
 
 ```
-.venv\Scripts\python -m dirtsearcher.gui                                   # the GUI
-.venv\Scripts\python -m dirtsearcher.cli --measurement "P2/With mirror"    # batch for one type
-.venv\Scripts\python -m dirtsearcher.cli --all --skip-done                 # every type, new wafers only
+.venv\Scripts\python -m spiometrologyviewer.gui                                   # the GUI
+.venv\Scripts\python -m spiometrologyviewer.cli --measurement "P2/With mirror"    # batch for one type
+.venv\Scripts\python -m spiometrologyviewer.cli --all --skip-done                 # every type, new wafers only
 .venv\Scripts\python tools\cluster_crops.py output\P2\WithMirror\<wafer> --k 8   # optional: group crops for review
 ```
 

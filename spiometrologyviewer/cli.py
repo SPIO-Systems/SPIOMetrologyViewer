@@ -1,8 +1,8 @@
 """Analyse a folder of mirror images, or a folder of wafer folders.
 
-    python -m dirtsearcher.cli --measurement "P2/With mirror"   # a measurement type from measurements.yaml
-    python -m dirtsearcher.cli --all                            # every measurement type in it
-    python -m dirtsearcher.cli Images/P2/WithMirror/17013_2_P2_05 --out output/17013_2_P2_05
+    python -m spiometrologyviewer.cli --measurement "P2/With mirror"   # a measurement type from measurements.yaml
+    python -m spiometrologyviewer.cli --all                            # every measurement type in it
+    python -m spiometrologyviewer.cli Images/P2/WithMirror/17013_2_P2_05 --out output/17013_2_P2_05
 """
 import argparse
 import time

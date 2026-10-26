@@ -30,7 +30,7 @@ def grid(paths, tile, cols=10, max_n=100):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("out", type=Path, help="output folder of dirtsearcher.cli (with objects.csv and crops/)")
+    ap.add_argument("out", type=Path, help="output folder of spiometrologyviewer.cli (with objects.csv and crops/)")
     ap.add_argument("--k", type=int, default=8)
     ap.add_argument("--tile", type=int, default=96)
     args = ap.parse_args()

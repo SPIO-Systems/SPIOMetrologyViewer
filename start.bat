@@ -1,5 +1,5 @@
 @echo off
-rem DirtSearcher5000: get the latest version from GitHub, install what it needs, start the GUI.
+rem SPIOMetrologyViewer: get the latest version from GitHub, install what it needs, start the GUI.
 cd /d "%~dp0"
 
 set "GIT="
@@ -39,4 +39,4 @@ if errorlevel 1 (
     copy /y requirements.txt .venv\requirements.installed >nul
 )
 
-start "" .venv\Scripts\pythonw.exe -m dirtsearcher.gui
+start "" .venv\Scripts\pythonw.exe -m spiometrologyviewer.gui

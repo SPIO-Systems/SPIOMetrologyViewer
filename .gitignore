@@ -5,7 +5,7 @@ settings.yaml
 __pycache__/
 *.pyc
 
-# Workspace data (shared on Nextcloud, see dirtsearcher/workspace.py). Defaults for a new
+# Workspace data (shared on Nextcloud, see spiometrologyviewer/workspace.py). Defaults for a new
 # workspace are in workspace_template/.
 /Images/
 /output/

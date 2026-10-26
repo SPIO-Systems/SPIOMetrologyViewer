@@ -3,7 +3,7 @@
 # Pixel scale, measured from the burned-in 500 um scale bar (tick centres 199 px apart).
 um_per_px: 2.51
 
-# Analysis type (see dirtsearcher/analyses.py)
+# Analysis type (see spiometrologyviewer/analyses.py)
 analysis: "p3_mirror"
 
 input:

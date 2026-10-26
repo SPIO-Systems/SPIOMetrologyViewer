@@ -2,7 +2,7 @@
 with Statistics, Wafer map and Step-by-step tuning (follow the pipeline on one image and tune the
 parameters of each step).
 
-    python -m dirtsearcher.gui [--measurements measurements.yaml]
+    python -m spiometrologyviewer.gui [--measurements measurements.yaml]
 
 Mouse wheel zooms the image, dragging pans it, double-click fits it to the window.
 """
@@ -22,7 +22,7 @@ from tkinter import filedialog, messagebox, ttk
 if __name__ == "__main__" and not __package__:
     # Started as a plain script (e.g. PyCharm's Run on this file): make the package imports work.
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    __package__ = "dirtsearcher"
+    __package__ = "spiometrologyviewer"
 
 from PIL import Image, ImageTk
 
@@ -648,7 +648,7 @@ def main(argv=None):
     root = tk.Tk()
     if not args.measurements.exists() and choose_workspace(root):
         root.destroy()   # the workspace is read at import: start again with the new one
-        subprocess.Popen([sys.executable, "-m", "dirtsearcher.gui"], cwd=workspace.REPO)
+        subprocess.Popen([sys.executable, "-m", "spiometrologyviewer.gui"], cwd=workspace.REPO)
         return
     build(root, args.measurements)
     root.mainloop()
@@ -656,21 +656,21 @@ def main(argv=None):
 
 def choose_workspace(root):
     """First start on a PC (no measurements.yaml found): ask for the shared workspace folder, e.g.
-    the DirtSearcher folder in Nextcloud, and remember it in settings.yaml. An empty folder is set up
+    the 24 SPIOMetrologyViewer folder in Nextcloud, and remember it in settings.yaml. An empty folder is set up
     from workspace_template. True if a workspace was chosen."""
     root.withdraw()
-    messagebox.showinfo("DirtSearcher5000", "Choose the shared DirtSearcher workspace folder (e.g. the "
-                        "DirtSearcher folder in your Nextcloud). It holds measurements.yaml, the configs, "
+    messagebox.showinfo("SPIOMetrologyViewer", "Choose the shared SPIOMetrologyViewer workspace folder (e.g. the "
+                        "24 SPIOMetrologyViewer folder in your Nextcloud). It holds measurements.yaml, the configs, "
                         "images and results.", parent=root)
-    folder = filedialog.askdirectory(title="DirtSearcher workspace folder", parent=root)
+    folder = filedialog.askdirectory(title="SPIOMetrologyViewer workspace folder", parent=root)
     if not folder:
         return False
     if not workspace.is_workspace(folder):
         if any(Path(folder).iterdir()):
-            messagebox.showerror("DirtSearcher5000", f"{folder} has no measurements.yaml: that's not the "
+            messagebox.showerror("SPIOMetrologyViewer", f"{folder} has no measurements.yaml: that's not the "
                                  "workspace folder.", parent=root)
             return False
-        if not messagebox.askyesno("DirtSearcher5000", f"{folder} is empty. Set up a new workspace in it?",
+        if not messagebox.askyesno("SPIOMetrologyViewer", f"{folder} is empty. Set up a new workspace in it?",
                                    parent=root):
             return False
         workspace.create(folder)
@@ -681,7 +681,7 @@ def choose_workspace(root):
 def build(root, registry=measurements.DEFAULT_REGISTRY):
     """The window: one tab per plate, inside it one tab per measurement type (MeasurementTab).
     Returns {"P2/With mirror": MeasurementTab, ...}."""
-    root.title("DirtSearcher5000")
+    root.title("SPIOMetrologyViewer")
     root.geometry("1450x950")
     try:
         root.state("zoomed")

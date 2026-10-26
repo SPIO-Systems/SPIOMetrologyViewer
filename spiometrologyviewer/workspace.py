@@ -3,7 +3,7 @@ writes besides its code: measurements.yaml, configs, tolerances, tunings, positi
 results. The code (this repo) can then be updated from GitHub without touching the data.
 
 The workspace is, in this order:
-  1. the environment variable DIRTSEARCHER_WORKSPACE
+  1. the environment variable SPIOMETROLOGYVIEWER_WORKSPACE
   2. `workspace:` in settings.yaml next to this package (per PC, not in git; the GUI writes it)
   3. the repo folder itself (how it worked before the split)
 
@@ -21,7 +21,7 @@ import yaml
 REPO = Path(__file__).resolve().parent.parent
 SETTINGS = REPO / "settings.yaml"
 TEMPLATE = REPO / "workspace_template"
-ENV = "DIRTSEARCHER_WORKSPACE"
+ENV = "SPIOMETROLOGYVIEWER_WORKSPACE"
 LOCK_NAME = "RUNNING.txt"
 LOCK_HOURS = 12
 
@@ -46,7 +46,7 @@ ROOT = (_configured() or REPO).resolve()
 
 def save_settings(folder):
     """Remember `folder` as this PC's workspace (settings.yaml); takes effect on the next start."""
-    SETTINGS.write_text("# This PC's workspace folder (see dirtsearcher/workspace.py). Not in git.\n"
+    SETTINGS.write_text("# This PC's workspace folder (see spiometrologyviewer/workspace.py). Not in git.\n"
                         f"workspace: {Path(folder).resolve().as_posix()}\n", encoding="utf-8")
 
 
