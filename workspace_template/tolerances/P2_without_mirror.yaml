@@ -1,0 +1,31 @@
+# Wafer map tolerances, per results.csv column (edited and saved from the GUI's Wafer map tab).
+#   green / pass : value <= pass_max
+#   yellow / warn: pass_max < value <= fail_min
+#   red / fail   : value > fail_min
+# Offsets and rotation are compared as absolute values. enabled: false leaves a metric out of
+# the overall (worst-of) colour.
+
+dirt_coverage_inner_pct:  # Dirt coverage inner [%]
+  pass_max: 0.5
+  fail_min: 2
+  enabled: true
+dirt_coverage_edge_pct:  # Dirt coverage edge [%]
+  pass_max: 1
+  fail_min: 5
+  enabled: true
+particle_count:  # Particle count
+  pass_max: 20
+  fail_min: 50
+  enabled: true
+particle_max_diam_um:  # Largest particle [um]
+  pass_max: 35
+  fail_min: 50
+  enabled: true
+fibre_max_length_um:  # Longest fibre [um]
+  pass_max: 50
+  fail_min: 100
+  enabled: true
+residue_area_pct:  # Residue area [%]
+  pass_max: 0.25
+  fail_min: 1
+  enabled: true

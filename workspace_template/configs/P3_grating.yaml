@@ -1,0 +1,52 @@
+# P3 grating ("Grading" images): particles, streaks (comets) and discoloured spots.
+
+# Pixel scale, measured from the burned-in 500 um scale bar (tick centres 199 px apart).
+um_per_px: 2.51
+
+# Analysis type (see dirtsearcher/analyses.py)
+analysis: "grating"
+
+input:
+  image_glob: "*COLOR2D.jpg"  # batch runs only analyse these files
+  min_images: 10              # a folder holding at least this many of them directly is one wafer
+
+overlay:
+  color_margin: 40        # how much greener / yellower than the surroundings a grid pixel is
+  dilate_px: 1
+  local_px: 11            # median window the colour is compared with
+
+grating:
+  max_gray: 150           # grating pixels are darker than this (grating ~80, background ~190, white ~240)
+  open_px: 9              # opening that cuts thin links to other dark areas
+  border_ignore_um: 15    # rim along the grating edge, never counted
+
+edge_band_um: 50          # outer strip of the grating reported separately from the inner area
+
+illumination:
+  closing_um: 150         # dark features narrower than this are removed from the background estimate
+  blur_um: 25
+
+saturation_level: 250     # grey value at or above this counts as overexposed
+
+dark:
+  t_ratio: 0.75           # particle core: intensity / background < this ...
+  t_ratio_low: 0.88       # ... grown into touching pixels below this (comet tails)
+  min_area_px: 3
+
+discolour:
+  min_delta_e: 6          # colour difference (Lab a/b) from the grating's median colour for a spot
+  smooth_um: 50           # smoothing of the colour difference
+  min_area_um2: 10000     # smaller patches are ignored
+
+classify:
+  streak_min_elongation: 3    # major / minor axis. Streak if elongation OR thinness is above its limit ...
+  streak_min_thinness: 5      # skeleton_length^2 / area
+  streak_min_length_um: 30    # ... AND it is at least this long
+
+presence:
+  particle_min_diam_um: 10
+  streak_min_length_um: 50
+
+output:
+  crop_px: 96
+  thumb_px: 256           # size of the device thumbnails on the wafer map

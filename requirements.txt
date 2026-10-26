@@ -1,0 +1,12 @@
+# Versions tested together (Python 3.14). start.bat installs these.
+matplotlib==3.11.2
+numpy==2.5.4
+opencv-python-headless==5.0.0.93
+openpyxl==3.1.5
+pandas==3.0.6
+pillow==13.0.0
+PyYAML==6.0.3
+scikit-image==0.26.0
+scikit-learn==1.9.1
+scipy==1.18.1
+tifffile==2026.10.15

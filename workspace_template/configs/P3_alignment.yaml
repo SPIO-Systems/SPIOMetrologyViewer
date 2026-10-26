@@ -1,0 +1,63 @@
+# P3 alignment marks: offset of the dark-line pattern against the bright-line pattern, and dirt.
+
+# Pixel scale, measured from the burned-in 500 um scale bar (tick centres 199 px apart).
+um_per_px: 2.51
+
+# Analysis type (see dirtsearcher/analyses.py)
+analysis: "alignment"
+
+input:
+  image_glob: "*COLOR2D.jpg"  # batch runs only analyse these files
+  min_images: 3               # a folder holding at least this many of them directly is one wafer (5 marks)
+
+overlay:
+  color_margin: 60        # how much G (green) or R+G (yellow) must exceed the other channels (scale bar)
+  dilate_px: 1
+
+lines:
+  width_px: 15            # line filter (top-hat / black-hat) width: wider than a line, narrower than the gaps
+  bright_contrast: 40     # bright line: grey levels above the local background
+  dark_contrast: 8        # dark line: grey levels below the local background
+  min_length_um: 375      # straight pieces at least this long are lines
+  pair_tol_px: 2.5        # two lines are mirror partners if they are this close to symmetric
+  centre_search_um: 500   # a pattern's centre is searched this far from the image centre
+  min_quality: 0.6        # share of lines that must find a partner, else the offset is flagged
+
+dirt:
+  line_margin_um: 2.5     # line pixels plus this margin are filled in before dirt is searched
+  max_on_line: 0.6        # objects lying more than this share on a line are leftovers of that
+  border_ignore_um: 25    # image border not searched
+  label_min_area_um2: 5000  # bright blobs at least this big are the white square / label ...
+  label_margin_um: 50     # ... not searched within this distance (it casts a shadow)
+
+illumination:
+  median_length_um: 200   # background = lower of the medians along x / y over this length
+  blur_um: 5
+
+saturation_level: 250     # grey value at or above this counts as overexposed
+
+dark:
+  t_ratio: 0.8            # dark core: intensity / background < this ...
+  t_ratio_low: 0.85       # ... grown into touching pixels below this (a droplet's inside is ~0.88)
+  min_area_px: 4
+
+stain:
+  t_ratio: 0.96           # stain: the smoothed flattened image below this ...
+  smooth_um: 20           # ... smoothed over this ...
+  min_area_um2: 3000      # ... over at least this area ...
+  dark_margin_um: 25      # ... and at least this far from dark objects (their halos)
+
+classify:
+  ring_min_fill_ratio: 1.25   # ring: its outline encloses at least this many times its own area (solid = 1) ...
+  ring_min_diam_um: 30        # ... and is at least about this big
+  ring_gap_px: 3              # gaps in the outline up to about twice this are bridged first
+  fibre_min_elongation: 4     # major / minor axis. Fibre if elongation OR thinness is above its limit ...
+  fibre_min_thinness: 6       # skeleton_length^2 / area
+  fibre_min_length_um: 50     # ... AND it is at least this long
+
+presence:
+  particle_min_diam_um: 10
+
+output:
+  crop_px: 96
+  thumb_px: 256           # size of the device thumbnails on the wafer map

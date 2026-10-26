@@ -1,0 +1,47 @@
+# P3 mirror: small particles and large defects on the cream mirror (the gold strip on its left is ignored).
+
+# Pixel scale, measured from the burned-in 500 um scale bar (tick centres 199 px apart).
+um_per_px: 2.51
+
+# Analysis type (see dirtsearcher/analyses.py)
+analysis: "p3_mirror"
+
+input:
+  image_glob: "*COLOR2D.jpg"  # batch runs only analyse these files
+  min_images: 10              # a folder holding at least this many of them directly is one wafer
+
+overlay:
+  color_margin: 40        # how much greener / yellower than the surroundings a grid pixel is
+  dilate_px: 1
+  local_px: 11            # median window the colour is compared with (the mirror itself is yellowish)
+
+mirror:
+  min_red: 150            # mirror pixels: red at least this ...
+  min_blue_ratio: 0.45    # ... and blue at least this fraction of red (mirror ~0.6, gold strip < 0.3)
+  min_line_frac: 0.6      # a column / row belongs to the mirror if at least this share of it has the colour
+  min_area_frac: 0.15     # the mirror covers at least this fraction of the image, else "not found"
+  border_ignore_um: 10    # rim along the mirror edge, never counted as dirt
+
+edge_band_um: 50          # outer strip of the mirror reported separately from the inner area
+
+illumination:
+  closing_um: 200         # dark features narrower than this are removed from the background estimate
+  blur_um: 25
+
+saturation_level: 250     # grey value (mean of R, G, B) at or above this counts as overexposed
+
+dark:
+  t_ratio: 0.8            # pixel is "dark" if intensity / background < this ...
+  t_ratio_low: 0.93       # ... and grown into touching pixels below this (faint fibre parts)
+  min_area_px: 3
+
+classify:
+  large_min_diam_um: 40   # objects at least this wide (equivalent diameter) ...
+  large_min_length_um: 100  # ... or this long are large defects, the rest are particles
+
+presence:
+  particle_min_diam_um: 10
+
+output:
+  crop_px: 96
+  thumb_px: 256           # size of the device thumbnails on the wafer map

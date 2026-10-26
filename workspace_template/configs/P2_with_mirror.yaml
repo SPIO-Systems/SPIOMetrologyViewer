@@ -1,0 +1,74 @@
+# Pixel scale, measured from the burned-in 500 um scale bar (tick centres 199 px apart).
+um_per_px: 2.51
+
+# What is analysed: "mirror" (the mirror rectangle, plus its offset to the lens) or "lens" (images
+# without a mirror: the lens surface inside its bright ring; no offset, no edge chips)
+region: "mirror"
+
+input:
+  image_glob: "*COLOR2D.tif"  # batch runs only analyse these files (LSM2D laser scans and backside shots are left out)
+  min_images: 10              # a folder holding at least this many of them directly is one wafer
+
+overlay:
+  color_margin: 60        # how much G (green) or R+G (yellow) must exceed the other channels
+  dilate_px: 1
+
+mirror:
+  size_um: [1213, 1630]   # mirror width, height (median over the first 33 images: 483 x 649 px)
+  size_tol_um: 25         # if a fitted side pair is further off than this, the weaker edge is re-placed
+  rough_step_frac: 0.35   # first edge walking outward from centre at least this strong (vs strongest)
+  edge_search_px: 15      # search window around the rough edge when refining each side
+  corner_exclude_um: 250  # corners are chamfered + reflections: triangle (d_edge1 + d_edge2 < this) not analysed
+  border_ignore_um: 25    # bevel along the mirror edge (brightness ramp), never counted as dirt
+
+lens:                     # round lens around the mirror, for the alignment (centre offset) numbers
+  search_um: [950, 1300]  # outer edge of the dark lens searched at this distance from the mirror centre
+  ring_search_um: [40, 200]  # thin bright ring searched this far inside the outer edge (cross-check)
+  inner_margin_um: 60     # region "lens": the analysed disk ends this far inside the bright ring
+
+edge_band_um: 50         # outer strip of the mirror reported separately from the inner area
+
+illumination:
+  closing_um: 100         # dark features smaller than this are removed from the background estimate
+  blur_um: 25
+
+saturation_level: 250     # any channel >= this counts as overexposed
+glare_margin_um: 40       # exclusion around reflection arcs (saturated spots away from the central hotspot)
+
+dark:
+  t_ratio: 0.6            # pixel is "dark" if intensity / background < this
+  min_area_px: 4
+
+residue:
+  dog_sigmas: [1.0, 4.0]  # band-pass (difference of Gaussians): fine relief lines, ignores smooth ramps
+  window_px: 9            # local averaging of |DoG| into a texture energy
+  k_mad: 6                # threshold = median + k * MAD of the energy on clean mirror
+  min_energy: 0.02        # absolute floor on that threshold
+  particle_halo_px: 12    # ignore texture this close to solid dark particles
+  bevel_strip_elongation: 8  # residue this elongated lying entirely in the edge band = bevel artefact
+  cluster:                # droplet fields: many small dark blobs crowded together
+    link_um: 40
+    min_blobs: 5
+  closing_px: 9
+  min_area_um2: 2000
+
+classify:
+  fibre_min_elongation: 4     # major / minor axis
+  fibre_min_thinness: 6       # skeleton_length^2 / area  (~ length / width)
+  fibre_min_length_um: 30
+  unknown_max_solidity: 0.4   # non-fibre dark blobs less solid than this are "unknown"
+
+edge_chip:
+  start_um: 12.5          # chip search starts this far inside the fitted edge (edge blur)
+  min_depth_um: 20        # measured from the fitted edge
+
+# Minimum size before a class counts as "present" in results.csv
+presence:
+  particle_min_diam_um: 10
+  fibre_min_length_um: 50
+  residue_min_total_area_um2: 3000   # summed over all residue patches in the image
+  edge_chip_min_depth_um: 20
+
+output:
+  crop_px: 96
+  thumb_px: 256           # size of the device thumbnails on the wafer map
