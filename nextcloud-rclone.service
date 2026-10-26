@@ -1,0 +1,16 @@
+# Linux: mounts Nextcloud at ~/Nextcloud at login with rclone, without a full local copy (only opened
+# files are cached, at most 5 GB). Needs an rclone remote named "nextcloud" (see README, Linux). Install:
+#   cp nextcloud-rclone.service ~/.config/systemd/user/ && systemctl --user enable --now nextcloud-rclone
+[Unit]
+Description=Nextcloud at ~/Nextcloud (rclone mount)
+
+[Service]
+Type=notify
+ExecStartPre=/usr/bin/mkdir -p %h/Nextcloud
+ExecStart=/usr/bin/rclone mount nextcloud: %h/Nextcloud --vfs-cache-mode full --vfs-cache-max-size 5G --vfs-cache-max-age 72h --dir-cache-time 1m
+ExecStop=/usr/bin/fusermount3 -u %h/Nextcloud
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=default.target

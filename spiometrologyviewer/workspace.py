@@ -42,7 +42,14 @@ def is_workspace(folder):
     return (Path(folder) / "measurements.yaml").is_file()
 
 
-ROOT = (_configured() or REPO).resolve()
+CONFIGURED = _configured()
+ROOT = (CONFIGURED or REPO).resolve()
+
+
+def reachable():
+    """False if a workspace is configured but its folder isn't there (e.g. Nextcloud not connected).
+    os.path.isdir, unlike Path.is_dir on Python < 3.14, also gives False on a network mount's I/O error."""
+    return CONFIGURED is None or os.path.isdir(CONFIGURED)
 
 
 def save_settings(folder):
@@ -75,8 +82,9 @@ def relative(path):
 
 
 def resolve(path):
-    """A path from results.csv: relative ones are taken from the workspace."""
-    p = Path(path)
+    """A path from results.csv: relative ones are taken from the workspace. Backslashes (a path
+    written on Windows) are read as separators, so it also resolves on Linux."""
+    p = Path(str(path).replace("\\", "/"))
     return p if p.is_absolute() else ROOT / p
 
 

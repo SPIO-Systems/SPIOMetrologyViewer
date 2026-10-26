@@ -37,14 +37,17 @@ class Measurement:
         cfg = cfg or self.load_config()
         inp = cfg.get("input", {})
         pattern, min_images = inp.get("image_glob"), inp.get("min_images", 10)
+        # Folder names are matched ignoring case, as on Windows (Images/P3/*/Grading finds .../grading)
         if "*" not in self.images:
             root = self.base / self.images
+            if not root.is_dir() and not Path(self.images).is_absolute():
+                root = next(iter(sorted(self.base.glob(self.images, case_sensitive=False))), root)
             return io.find_wafers(root, pattern, min_images) if root.is_dir() else {}
         # e.g. Images/P3/*/Mirror: every match is one wafer, named after the "*" part
         parts = Path(self.images).parts
         i = next(k for k, p in enumerate(parts) if "*" in p)
         found = {}
-        for folder in sorted(self.base.glob(self.images)):
+        for folder in sorted(self.base.glob(self.images, case_sensitive=False)):
             if folder.is_dir() and len(io.list_images(folder, pattern)) >= min_images:
                 found[folder.relative_to(self.base).parts[i]] = folder
         return found

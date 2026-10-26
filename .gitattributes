@@ -1,3 +1,4 @@
 *.bat text eol=crlf
 *.sh text eol=lf
 *.desktop text eol=lf
+*.service text eol=lf

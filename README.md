@@ -29,7 +29,20 @@ On **Linux Mint** (or Ubuntu), in a terminal:
 
 1. `sudo apt install git curl`, then install [uv](https://docs.astral.sh/uv), which brings its
    own Python 3.14: `curl -LsSf https://astral.sh/uv/install.sh | sh`.
-2. Sync the `24 SPIOMetrologyViewer` folder with the Nextcloud desktop client (`sudo apt install nextcloud-desktop`).
+2. Get the Nextcloud files to `~/Nextcloud`, either way:
+   - Sync the `24 SPIOMetrologyViewer` folder with the Nextcloud desktop client (`sudo apt install nextcloud-desktop`).
+   - Or, without a full local copy, mount Nextcloud with rclone (only opened files are cached, at most 5 GB).
+     In Nextcloud, Settings → Security → "Create new app password", then:
+     ```
+     sudo apt install rclone
+     rclone config create nextcloud webdav vendor=nextcloud url=https://nextcloud.spiosystems.com/remote.php/dav/files/<your login>/ user=<your login> pass=<app password> --obscure
+     mkdir -p ~/.config/systemd/user && cp nextcloud-rclone.service ~/.config/systemd/user/
+     systemctl --user enable --now nextcloud-rclone
+     ```
+     (run the `cp` in the clone, after step 3). It then mounts at every login.
+
+   The Nextcloud entry of the desktop's "Online Accounts" doesn't work: the program can't create
+   files or folders through it, so batch runs and saving new tunings or tolerances fail.
 3. `cd ~/Documents && git clone https://github.com/SPIO-Victor/SPIOMetrologyViewer.git`
 4. `cd SPIOMetrologyViewer && ./start.sh`. The first start takes a few minutes. Choose the
    Nextcloud folder when asked, e.g. `~/Nextcloud/SPIO Systems/8 Software/24 SPIOMetrologyViewer`.
@@ -107,6 +120,8 @@ the wafer is then named after the `*` folder.
 .venv\Scripts\python -m spiometrologyviewer.cli --all --skip-done                 # every type, new wafers only
 .venv\Scripts\python tools\cluster_crops.py output\P2\WithMirror\<wafer> --k 8   # optional: group crops for review
 ```
+
+On Linux, use `.venv/bin/python` and `/` in the paths.
 
 A wafer is every folder in the type's image folder (at any depth) that directly holds at least
 `input.min_images` (10) matching images; it is named after its folder. `--skip-done` skips wafers

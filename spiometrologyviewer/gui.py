@@ -653,6 +653,13 @@ def main(argv=None):
     except Exception:
         pass
     root = tk.Tk()
+    if not workspace.reachable():
+        root.withdraw()
+        messagebox.showerror("SPIOMetrologyViewer", f"Can't reach the workspace folder\n{workspace.CONFIGURED}\n\n"
+                             "Is Nextcloud connected? Open the folder in the file manager, then start again. "
+                             f"To choose another folder, delete {workspace.SETTINGS}.", parent=root)
+        root.destroy()
+        return
     if not args.measurements.exists() and choose_workspace(root):
         root.destroy()   # the workspace is read at import: start again with the new one
         subprocess.Popen([sys.executable, "-m", "spiometrologyviewer.gui"], cwd=workspace.REPO)
