@@ -27,11 +27,17 @@ the latest version from GitHub (`git pull`) and installs new packages if `requir
 
 On **Linux Mint** (or Ubuntu), in a terminal:
 
-1. `sudo apt install git curl`, then install [uv](https://docs.astral.sh/uv), which brings its
-   own Python 3.14: `curl -LsSf https://astral.sh/uv/install.sh | sh`.
+1. Python 3.14 with tkinter, from the deadsnakes PPA:
+   ```
+   sudo add-apt-repository ppa:deadsnakes/ppa
+   sudo apt install git python3.14 python3.14-venv python3.14-tk
+   ```
+   Without sudo, [uv](https://docs.astral.sh/uv) also works (`curl -LsSf https://astral.sh/uv/install.sh | sh`),
+   but its Python's Tk can only use old bitmap fonts, so the GUI looks rough. `start.sh` prefers the
+   system Python 3.14 and switches an existing uv `.venv` over to it.
 2. Get the Nextcloud files to `~/Nextcloud`, either way:
    - Sync the `24 SPIOMetrologyViewer` folder with the Nextcloud desktop client (`sudo apt install nextcloud-desktop`).
-   - Or, without a full local copy, mount Nextcloud with rclone (only opened files are cached, at most 5 GB).
+   - Or, without a full local copy, mount Nextcloud with rclone (only opened files are cached, at most 50 GB).
      In Nextcloud, Settings → Security → "Create new app password", then:
      ```
      sudo apt install rclone

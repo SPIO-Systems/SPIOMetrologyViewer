@@ -22,11 +22,21 @@ fi
 
 # uv (https://docs.astral.sh/uv) brings its own Python 3.14 with tkinter, no sudo needed
 UV=$(command -v uv || { [ -x "$HOME/.local/bin/uv" ] && echo "$HOME/.local/bin/uv"; })
+# A system Python 3.14 with tkinter (deadsnakes PPA, see README) is preferred: the Tk in uv's Python
+# can only use old X11 bitmap fonts, the system's Tk uses the desktop fonts.
+SYS_PY=/usr/bin/python3.14
+"$SYS_PY" -c "import tkinter, ensurepip" 2>/dev/null || SYS_PY=""
+if [ -n "$SYS_PY" ] && grep -qs '^uv = ' .venv/pyvenv.cfg; then
+    echo "Switching .venv from uv's Python to $SYS_PY (sharper fonts)..."
+    rm -rf .venv
+fi
 
 # 2. First start: a private Python environment in .venv
 if [ ! -x .venv/bin/python ]; then
     echo "First start: setting up Python packages, this takes a few minutes..."
-    if [ -n "$UV" ]; then
+    if [ -n "$SYS_PY" ]; then
+        "$SYS_PY" -m venv .venv
+    elif [ -n "$UV" ]; then
         "$UV" venv --python 3.14 .venv
     else
         python3 -m venv .venv

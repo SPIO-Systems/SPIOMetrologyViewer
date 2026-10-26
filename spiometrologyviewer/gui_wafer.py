@@ -13,7 +13,7 @@ import pandas as pd
 from PIL import Image, ImageTk
 
 from . import io, report, tuning, wafer, workspace
-from .gui import PANEL_WIDTH, ImageView, ScrollFrame
+from .gui import PANEL_WIDTH, ImageView, ScrollFrame, loading, ready, status
 
 COLORS = {"pass": "#43a047", "warn": "#fbc02d", "fail": "#e53935", "nodata": "#bdbdbd"}
 LIGHT = {"pass": "#dcf2dc", "warn": "#fff3c4", "fail": "#fadbd8", "nodata": "#eeeeee"}
@@ -167,6 +167,7 @@ class WaferMapTab(ttk.Frame):
         # thumbnails: PIL images per (folder, image, kind), tk images per box size, and a worker
         # thread that makes the ones a batch run didn't save
         self._thumbs = {}
+        self._thumbs_read = self._thumbs_total = 0   # thumbnails read from disk / shown by draw(), for the status bar
         self._photos = {}
         self._photo_size = None
         self._pending = set()
@@ -303,7 +304,8 @@ class WaferMapTab(ttk.Frame):
         """Find the wafers in a batch output folder and show one (the one shown before, if it is
         there; otherwise the first)."""
         root = Path(root)
-        found = wafer.find_results(root)
+        with loading(f"Looking for results in {root}..."):
+            found = wafer.find_results(root)
         if not found:
             if not quiet:
                 messagebox.showerror("Load results", f"No results.csv in {root} or its subfolders.")
@@ -333,7 +335,8 @@ class WaferMapTab(ttk.Frame):
 
     def load_results(self, out_dir, quiet=False):
         try:
-            self.devices, self.objects = wafer.load_results(out_dir, self.positions, self.tunings_dir)
+            with loading(f"Loading the results of {Path(out_dir).name}..."):
+                self.devices, self.objects = wafer.load_results(out_dir, self.positions, self.tunings_dir)
             self.out_dir = Path(out_dir)
         except Exception as e:
             if not quiet:
@@ -396,6 +399,7 @@ class WaferMapTab(ttk.Frame):
         for w in self.legend.winfo_children():
             w.destroy()
         recs = [r for r in self._records() if not _isnan(r["x"]) and not _isnan(r["y"])]
+        self._thumbs_read, self._thumbs_total = 0, len(recs)
         cw, ch = c.winfo_width(), c.winfo_height()
         name = self.wafer_var.get()
         self.title_lbl.configure(text=f"{name}  -  {self.color_by.get()}" if name else self.color_by.get())
@@ -467,6 +471,8 @@ class WaferMapTab(ttk.Frame):
         for st in ("pass", "warn", "fail", "nodata"):
             tk.Label(self.legend, text=f" {NAMES[st]}: {counts[st]} ", background=COLORS[st],
                      font=("Segoe UI", 9, "bold")).pack(side="left", padx=2)
+        if self._thumbs_read:
+            ready()
 
     def _round_rect(self, x0, y0, x1, y1, r, **kw):
         pts = [x0 + r, y0, x1 - r, y0, x1, y0, x1, y0 + r, x1, y1 - r, x1, y1,
@@ -497,6 +503,8 @@ class WaferMapTab(ttk.Frame):
             return self._thumbs[key]
         path = self.out_dir / THUMBS[kind] / f"{rec['image']}.jpg"
         if path.exists():
+            self._thumbs_read += 1
+            status(f"Loading thumbnail {self._thumbs_read} of {self._thumbs_total} ({rec['image']})...")
             try:
                 im = Image.open(path).convert("RGB")
             except OSError:
@@ -628,7 +636,8 @@ class WaferMapTab(ttk.Frame):
             return
         objs = None
         if (out_dir / "objects.csv").exists():
-            objs = pd.read_csv(out_dir / "objects.csv", keep_default_na=False, na_values=[""])
+            with loading(f"Loading the objects of {row['wafer']}..."):
+                objs = pd.read_csv(out_dir / "objects.csv", keep_default_na=False, na_values=[""])
             objs = objs[objs["image"] == row["image"]]
         self._windows[key] = DeviceWindow(self, row, objs, out_dir, row["wafer"])
 
@@ -788,15 +797,19 @@ class DeviceWindow(tk.Toplevel):
 
     def _image(self, which):
         if which not in self._images:
-            img = None
-            if which == "Result (outlined)" and self.out_dir is not None:
-                bgr = cv2.imread(str(self.out_dir / "overlays" / f"{self.row['image']}.png"))
-                img = None if bgr is None else cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-            if img is None:
-                path = self.tab.raw_image_path(self.row)
-                img = io.load_image(path) if path else None
-            self._images[which] = img
+            with loading(f"Opening {which.lower()} image of {self.row['image']}..."):
+                self._images[which] = self._load_image(which)
         return self._images[which]
+
+    def _load_image(self, which):
+        img = None
+        if which == "Result (outlined)" and self.out_dir is not None:
+            bgr = cv2.imread(str(self.out_dir / "overlays" / f"{self.row['image']}.png"))
+            img = None if bgr is None else cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+        if img is None:
+            path = self.tab.raw_image_path(self.row)
+            img = io.load_image(path) if path else None
+        return img
 
     def _show_image(self):
         img = self._image(self.view_var.get())

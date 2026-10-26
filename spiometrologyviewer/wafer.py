@@ -236,11 +236,13 @@ def tuning_of(devices):
     return " + ".join(names) if names else tuning.UNKNOWN
 
 
-def load_all(wafers, positions, tunings=None):
+def load_all(wafers, positions, tunings=None, progress=None):
     """Results of several wafers ({name: results folder}) in one table, with a `wafer` and an
-    `out_dir` column; devices keep their map position."""
+    `out_dir` column; devices keep their map position. progress(i, n, name) is called before each."""
     frames = []
-    for name, folder in wafers.items():
+    for i, (name, folder) in enumerate(wafers.items(), 1):
+        if progress:
+            progress(i, len(wafers), name)
         devices, _ = load_results(folder, positions, tunings)
         frames.append(devices.assign(wafer=name, out_dir=str(folder)))
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()

@@ -7,6 +7,7 @@ parameters of each step).
 Mouse wheel zooms the image, dragging pans it, double-click fits it to the window.
 """
 import argparse
+import contextlib
 import copy
 import math
 import queue
@@ -37,6 +38,44 @@ WHEEL_EVENTS = ("<MouseWheel>", "<Button-4>", "<Button-5>")   # Windows / macOS,
 def wheel_up(e):
     """True if a mouse wheel event scrolls up (away from the user), on any platform."""
     return e.num == 4 or getattr(e, "delta", 0) > 0
+
+
+# ------------------------------------------------------------------ loading status
+# Files are read on the GUI thread, which can take a while on a network drive (Nextcloud). The status
+# bar at the bottom of the window says what is being read, so a slow load can be told from a hang.
+
+_status_bar = None   # ttk.Label, made in build()
+_loading = 0         # depth of nested loading() blocks
+
+
+def status(text):
+    """Show `text` in the status bar straight away, even while the GUI thread is busy."""
+    if _status_bar is not None and _status_bar.winfo_exists():
+        _status_bar.configure(text=text)
+        _status_bar.update_idletasks()
+
+
+def ready():
+    """Back to "Ready", unless a loading() block is still running."""
+    if _loading == 0:
+        status("Ready")
+
+
+@contextlib.contextmanager
+def loading(text):
+    """with loading("Loading ..."): shows `text` and a busy cursor meanwhile, then "Ready"."""
+    global _loading
+    _loading += 1
+    if _loading == 1 and _status_bar is not None and _status_bar.winfo_exists():
+        _status_bar.winfo_toplevel().configure(cursor="watch")
+    status(text)
+    try:
+        yield
+    finally:
+        _loading -= 1
+        if _loading == 0 and _status_bar is not None and _status_bar.winfo_exists():
+            _status_bar.winfo_toplevel().configure(cursor="")
+        ready()
 
 
 class ImageView(tk.Canvas):
@@ -355,11 +394,12 @@ class App:
 
     def open_image(self, path):
         try:
-            self.base = pipeline.initial_state(path)
+            with loading(f"Opening {path.name}..."):
+                self.base = pipeline.initial_state(path)
+                self.images = io.list_images(path.parent)
         except Exception as e:
             messagebox.showerror("Open image", f"Could not load {path}:\n{e}")
             return
-        self.images = io.list_images(path.parent)
         self.image_box.configure(values=[p.name for p in self.images])
         self.image_box.current([p.resolve() for p in self.images].index(path.resolve()))
         self._invalidate(0)
@@ -604,6 +644,10 @@ class MeasurementTab(ttk.Frame):
     def ensure_built(self):
         if self.wafer_tab is not None:
             return
+        with loading(f"Loading {self.m.key}..."):
+            self._build_contents()
+
+    def _build_contents(self):
         from .gui_stats import StatsPanel
         from .gui_wafer import WaferMapTab
 
@@ -631,7 +675,8 @@ class MeasurementTab(ttk.Frame):
 
     def ensure_app(self, image=None):
         if self.app is None:
-            self.app = App(self.root, self.m.config, image, parent=self.tuning, measurement=self.m)
+            with loading(f"Loading the step-by-step tuning of {self.m.key}..."):
+                self.app = App(self.root, self.m.config, image, parent=self.tuning, measurement=self.m)
             self.app.on_batch_done = lambda out: self.wafer_tab.set_results_root(self.m.output)
             return True
         return False
@@ -707,6 +752,10 @@ def build(root, registry=measurements.DEFAULT_REGISTRY):
     style = ttk.Style(root)
     style.configure("Plate.TNotebook.Tab", font=("Segoe UI", 11, "bold"), padding=(14, 4))
     style.configure("Type.TNotebook.Tab", font=("Segoe UI", 10, "bold"), padding=(10, 3))
+    global _status_bar
+    _status_bar = ttk.Label(root, text="Ready", foreground="#555", padding=(8, 2))
+    _status_bar.pack(side="bottom", fill="x")
+    ttk.Separator(root).pack(side="bottom", fill="x")
 
     try:
         plates = measurements.load(registry)

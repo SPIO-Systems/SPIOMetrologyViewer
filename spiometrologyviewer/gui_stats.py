@@ -15,7 +15,7 @@ from matplotlib.patches import Rectangle                                        
 import numpy as np                                                                 # noqa: E402
 
 from . import wafer                                                                # noqa: E402
-from .gui import ScrollFrame                                                       # noqa: E402
+from .gui import ScrollFrame, loading, status                                      # noqa: E402
 from .gui_wafer import COLORS, NAMES, _pitch, fmt                                  # noqa: E402
 
 VIEWS = ["Yield bars", "Distribution curves", "Average wafer map", "Parameter vs parameter"]
@@ -179,7 +179,9 @@ class StatsPanel(ttk.Frame):
     def reload(self):
         """Read every wafer the map tab knows about (Refresh, or a new results folder)."""
         try:
-            self.df = wafer.load_all(self.tab.wafers, self.tab.positions, self.tab.tunings_dir)
+            with loading("Statistics: reading the results..."):
+                self.df = wafer.load_all(self.tab.wafers, self.tab.positions, self.tab.tunings_dir,
+                                         progress=lambda i, n, name: status(f"Statistics: reading {name} ({i} of {n})..."))
         except Exception as e:
             messagebox.showerror("Wafer statistics", f"Could not load the results:\n{e}", parent=self)
             self.df = None
