@@ -13,6 +13,7 @@ one PC open on another, wherever its Nextcloud folder is.
 import getpass
 import os
 import shutil
+import socket
 import time
 from pathlib import Path
 
@@ -109,7 +110,7 @@ class Lock:
 
     def __enter__(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(f"Batch run by {user()} on {os.environ.get('COMPUTERNAME', '?')}, "
+        self.path.write_text(f"Batch run by {user()} on {socket.gethostname()}, "
                              f"started {time.strftime('%Y-%m-%d %H:%M')}\n", encoding="utf-8")
         return self
 

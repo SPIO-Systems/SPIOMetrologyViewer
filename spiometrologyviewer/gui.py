@@ -31,6 +31,12 @@ from .gui_steps import get_param, set_param
 
 ROOT = workspace.ROOT
 PANEL_WIDTH = 420  # at 96 dpi; scaled to the screen in App
+WHEEL_EVENTS = ("<MouseWheel>", "<Button-4>", "<Button-5>")   # Windows / macOS, Linux (X11) up, down
+
+
+def wheel_up(e):
+    """True if a mouse wheel event scrolls up (away from the user), on any platform."""
+    return e.num == 4 or getattr(e, "delta", 0) > 0
 
 
 class ImageView(tk.Canvas):
@@ -47,7 +53,8 @@ class ImageView(tk.Canvas):
         self._drag = None
         self.marker = None   # (x, y, radius) in image px, drawn as a ring
         self.bind("<Configure>", lambda e: self.fit() if self.auto_fit else self.render())
-        self.bind("<MouseWheel>", self._wheel)
+        for ev in WHEEL_EVENTS:
+            self.bind(ev, self._wheel)
         self.bind("<ButtonPress-1>", lambda e: setattr(self, "_drag", (e.x, e.y)))
         self.bind("<B1-Motion>", self._pan)
         self.bind("<Double-Button-1>", lambda e: self.fit())
@@ -97,7 +104,7 @@ class ImageView(tk.Canvas):
         self.render()
 
     def _wheel(self, e):
-        new = min(max(self.scale * (1.25 if e.delta > 0 else 0.8), 0.05), 40)
+        new = min(max(self.scale * (1.25 if wheel_up(e) else 0.8), 0.05), 40)
         f = new / self.scale
         self.ox, self.oy = e.x - (e.x - self.ox) * f, e.y - (e.y - self.oy) * f
         self.scale = new
@@ -180,12 +187,12 @@ class ScrollFrame(ttk.Frame):
         self.canvas.configure(yscrollcommand=bar.set)
         self.canvas.pack(side="left", fill="both", expand=True)
         bar.pack(side="right", fill="y")
-        self.bind("<Enter>", lambda e: self.bind_all("<MouseWheel>", self._wheel))
-        self.bind("<Leave>", lambda e: self.unbind_all("<MouseWheel>"))
+        self.bind("<Enter>", lambda e: [self.bind_all(ev, self._wheel) for ev in WHEEL_EVENTS])
+        self.bind("<Leave>", lambda e: [self.unbind_all(ev) for ev in WHEEL_EVENTS])
 
     def _wheel(self, e):
         if self.inner.winfo_height() > self.canvas.winfo_height():
-            self.canvas.yview_scroll(-1 if e.delta > 0 else 1, "units")
+            self.canvas.yview_scroll(-1 if wheel_up(e) else 1, "units")
 
     def clear(self):
         for w in self.inner.winfo_children():
@@ -684,9 +691,12 @@ def build(root, registry=measurements.DEFAULT_REGISTRY):
     root.title("SPIOMetrologyViewer")
     root.geometry("1450x950")
     try:
-        root.state("zoomed")
+        root.state("zoomed")                  # Windows
     except tk.TclError:
-        pass
+        try:
+            root.attributes("-zoomed", True)  # Linux
+        except tk.TclError:
+            pass
     style = ttk.Style(root)
     style.configure("Plate.TNotebook.Tab", font=("Segoe UI", 11, "bold"), padding=(14, 4))
     style.configure("Type.TNotebook.Tab", font=("Segoe UI", 10, "bold"), padding=(10, 3))

@@ -11,7 +11,7 @@ The code is on GitHub; the data is in a shared **workspace** folder on Nextcloud
 in the same workspace, so tunings, tolerances and results are shared as soon as Nextcloud has
 synced them.
 
-One-time setup on a PC:
+One-time setup on a Windows PC (Linux: see below):
 
 1. Install [Git for Windows](https://git-scm.com) and [Python 3.14](https://www.python.org/downloads/)
    (keep "py launcher" ticked).
@@ -24,6 +24,20 @@ One-time setup on a PC:
 
 After that, start the program with `start.bat` (make a desktop shortcut to it). Every start fetches
 the latest version from GitHub (`git pull`) and installs new packages if `requirements.txt` changed.
+
+On **Linux Mint** (or Ubuntu), in a terminal:
+
+1. `sudo apt install git curl`, then install [uv](https://docs.astral.sh/uv), which brings its
+   own Python 3.14: `curl -LsSf https://astral.sh/uv/install.sh | sh`.
+2. Sync the `24 SPIOMetrologyViewer` folder with the Nextcloud desktop client (`sudo apt install nextcloud-desktop`).
+3. `cd ~/Documents && git clone https://github.com/SPIO-Victor/SPIOMetrologyViewer.git`
+4. `cd SPIOMetrologyViewer && ./start.sh`. The first start takes a few minutes. Choose the
+   Nextcloud folder when asked, e.g. `~/Nextcloud/SPIO Systems/8 Software/24 SPIOMetrologyViewer`.
+
+`start.sh` does the same as `start.bat`. For a menu or desktop shortcut, edit the paths in
+`spiometrologyviewer.desktop` and copy it to `~/.local/share/applications/`. Run
+`./start.sh --console` to keep the program in the terminal and see its error messages. Without uv,
+`start.sh` uses the system Python; that needs `sudo apt install python3-venv python3-tk`.
 
 Working together:
 

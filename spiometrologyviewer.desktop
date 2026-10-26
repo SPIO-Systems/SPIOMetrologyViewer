@@ -1,0 +1,11 @@
+[Desktop Entry]
+# Linux menu / desktop shortcut. Replace /home/USER/Documents/SPIOMetrologyViewer with where you
+# cloned it, then copy this file to ~/.local/share/applications/ (menu) or ~/Desktop/ (and in its
+# right-click menu choose "Allow Launching").
+Type=Application
+Name=SPIOMetrologyViewer
+Comment=Dirt and defect analysis of wafer microscope images
+Exec=/home/USER/Documents/SPIOMetrologyViewer/start.sh
+Path=/home/USER/Documents/SPIOMetrologyViewer
+Terminal=false
+Categories=Science;Graphics;
