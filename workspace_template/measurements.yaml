@@ -38,3 +38,10 @@ P3:
     config: configs/P3_mirror.yaml
     tolerances: tolerances/P3_mirror.yaml
     output: output/P3/Mirror
+
+P4:
+  3D profile:   # LEXT 3D scans, read where the microscope saved them (relative to this workspace folder)
+    images: ../../1 Projects/17000 FOSS/17010 FOSS NIR air/17013 FT2/05 Metrology/17013_2/P4
+    config: configs/P4_3d.yaml
+    tolerances: tolerances/P4_3d.yaml
+    output: output/P4/3D

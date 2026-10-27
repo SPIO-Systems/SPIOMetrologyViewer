@@ -1,0 +1,51 @@
+# P4 3D profile: lens shape from LEXT 3D microscope scans (.lext, one stitched scan per lens).
+# See spiometrologyviewer/lens3d.py. Lengths in um, residual heights in nm.
+analysis: "lens3d"
+
+input:
+  image_glob: "*_P4_*.lext"   # one scan per lens (the folders also hold colour .tiff exports and .poir raw data)
+  min_images: 10              # a folder holding at least this many of them directly is one wafer
+
+# Calibration factors on top of the scan's own scale. A LEXT CSV export in the wafer folder (with
+# "X Calibration" in its header) takes precedence; these are used when there is none.
+calibration:
+  x_pct: 100.697519
+  y_pct: 100.516137
+  z_pct: 100.0
+
+bin_px: 4                 # blocks of n x n pixels are averaged (0.96 um pixels -> ~3.8 um)
+nominal_roc_um: 16198     # design radius of curvature of the imprinted lenses
+
+noise:
+  max_step_um: 2.0        # a pixel further than this from the median of its 3 x 3 neighbours is unreliable
+
+level:
+  corner_radius_um: 2700  # surface beyond this distance from the scan centre = corners, used for the plane
+  clip_sigma: 3.0         # corner points further off the plane than this are dropped (dirt, rim noise)
+
+lens:
+  rim_search_um: [1800, 2700]  # the rim (lowest point) is searched this far from the apex
+  edge_margin_um: 100     # the analysed aperture ends this far inside the rim (steep, noisy)
+  apex_exclude_um: 0      # radius around the apex left out of the fits (measurement rings), 0 = none
+
+sphere:
+  fit_frac: 0.9           # R is fitted to this fraction of the aperture radius
+  fractions: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]   # R vs aperture
+
+zernike:
+  n_max: 6                # Zernike terms up to this radial order (n = 6: 28 terms)
+
+stitching:
+  period_um: 0            # tile period; 0 = from the scan's matl.omp2info, or searched
+  bins: 48                # bins per tile period when folding
+  remove: false           # subtract the mean tile pattern before looking for defects (partial model: off)
+
+defect:
+  window_um: 60           # bumps / pits smaller than this; broader deviations are shape
+  min_height_nm: 150
+  min_area_um2: 50
+
+output:
+  residual_range_nm: 0    # colour scale of the residual map, +-; 0 = automatic (99th percentile)
+  thumb_px: 256
+  crop_px: 96

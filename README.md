@@ -95,6 +95,7 @@ listed in `measurements.yaml`:
 | P3 | Alignment | `Images/P3/<wafer>/Alignment/` | offset of the dark-line pattern vs the bright-line pattern; particles, fibres, rings, stains |
 | P3 | Grating | `Images/P3/<wafer>/Grading/` | particles, streaks (comets) and discoloured spots on the grating |
 | P3 | Mirror | `Images/P3/<wafer>/Mirror/` | small particles and large defects on the cream mirror (gold strip ignored) |
+| P4 | 3D profile | the project's metrology folder, `…/05 Metrology/17013_2/P4/<wafer>/` (`.lext`) | lens shape from LEXT 3D scans: radius of curvature, residual to the sphere, Zernike terms, stitching, bumps and pits |
 
 Per type:
 
@@ -105,9 +106,12 @@ Per type:
 - `tolerances/<type>.yaml`: pass / warn / fail cutoffs.
 - `output/<plate>/<type>/<wafer>/`: results.
 
-Only `*COLOR2D` images are analysed (`input.image_glob`: `.tif` for P2, `.jpg` for P3). Wafers that
-only have LSM2D laser scans (`17013_2_P2_102testBeforeCleaning`, `17013_2_T2_102_afterCleaning`)
-are left out for now, and so are the 3D scans.
+Only `*COLOR2D` images are analysed for P2 and P3 (`input.image_glob`: `.tif` for P2, `.jpg` for P3).
+Wafers that only have LSM2D laser scans (`17013_2_P2_102testBeforeCleaning`,
+`17013_2_T2_102_afterCleaning`) are left out for now. P4 reads the LEXT 3D scans (`*_P4_*.lext`, one
+per lens) where the microscope saved them, in the project folder: `images:` in `measurements.yaml` is
+relative to the workspace (`../../1 Projects/…`), so it works on every PC that has the `SPIO Systems`
+folder in its Nextcloud. Each scan is ~120 MB (4 GB per wafer), read over the network.
 
 ### Adding a plate or measurement type
 
@@ -248,6 +252,7 @@ Changing a tolerance in the Wafer map tab updates the plots straight away. Doubl
 | `output/overlays/*.png` | Each image with detections outlined: red = particle, blue = fibre, magenta = residue, orange = edge chip, cyan = unknown. Bright green = analysed area, yellow = inner/edge boundary, hatched = overexposed |
 | `output/crops/*.png` | One crop per object, named `<object_id>.png` |
 | `output/thumbs/*.jpg`, `output/thumbs_result/*.jpg` | Small raw / result images for the wafer map (`output.thumb_px`) |
+| `output/plots/*.png` | P4: per lens, R vs aperture, the radial residual profile, the Zernike terms and the mean stitch tile ("Plots" in the device window) |
 | `output/clusters/*.png` | Crop grids per feature cluster (from `cluster_crops.py`) |
 | `output/config_used.yaml` | The parameters this run used (its tuning is the `tuning` column of `results.csv`) |
 
@@ -331,6 +336,46 @@ Every step below has its own step in the tuning tab, with its parameters and vie
 The grid overlay on P3 Grating and Mirror is found by its colour relative to the surroundings
 (`overlay.local_px`), because the mirror itself is yellowish.
 
+### P4 3D profile
+
+One LEXT `.lext` scan per lens (Evident OLS5500, 20x objective, 9 x 9 stitched tiles; a TIFF with
+the height map, the laser intensity and an invalid-pixel mask). Lengths are µm, residual heights nm.
+
+1. **Load**: the height map in the file's own scale (`HeightDataPerPixelX/Y/Z`), times our
+   **calibration factors**: from a LEXT CSV export in the wafer folder (its header has
+   `X Calibration  = ,100.697519,` etc.; only the header is read) if there is one, else
+   `calibration:` in the config (now X 100.697519 %, Y 100.516137 %, Z 100 %). R scales with the
+   square of the lateral factor, so these matter: +0.6 % laterally is +1.2 % in R. The factors and
+   their source go into `results.csv` (`cal_x_pct`, `cal_y_pct`, `cal_z_pct`, `cal_source`).
+   The map is binned (`bin_px` 4, ~3.9 µm), and pixels far off their neighbours (the steep rim)
+   are left out.
+2. **Level**: a plane fitted to the corners outside the lens (beyond `level.corner_radius_um` from
+   the scan centre), with outliers clipped, is subtracted (`tilt_x_pct`, `tilt_y_pct`, `corner_rms_um`).
+3. **Lens**: the rim is the lowest point along 360 rays from the apex, fitted with a circle
+   (`lens_diameter_um`, `rim_roundness_um`, ±~10 µm), `sag_um` = apex − rim. The analysed aperture
+   ends `lens.edge_margin_um` inside the rim (`aperture_um`).
+4. **Sphere**: geometric least-squares sphere fit (shortest distance of each point to the sphere,
+   robust to outliers) to `sphere.fit_frac` (0.9) of the aperture radius: `roc_um`, and
+   `roc_dev_pct` vs `nominal_roc_um` (16198). **R vs aperture**: the centre is kept and R is refitted
+   to 10 %, 20 %, … 100 % of the aperture radius (`roc_10pct` … `roc_100pct`); a flat curve means a
+   spherical lens, `roc_spread_pct` = max − min from 30 % on. A conic fit gives `conic_roc_um` and
+   `conic_k` (0 = sphere).
+5. **Shape**: the residual to the sphere (normal to it; `residual_rms_nm`, `residual_pv_nm`) is split
+   into Zernike terms over the aperture (Noll, up to `zernike.n_max` 6): `astig_nm` (saddle / warp),
+   `coma_nm`, `trefoil_nm`, `spherical_nm` (rms values), all of them together `lowfreq_rms_nm`, and
+   the rest `midfreq_rms_nm` (stitching, defects, noise).
+6. **Stitching**: the tile period is the strongest repeat of the residual's structure (2D
+   autocorrelation), searched around the tile step in the scan's `matl.omp2info`. Folding the residual
+   with it averages all tiles into one mean tile; its rms is `stitch_rms_nm`, the error every tile
+   shares. Each tile also has its own offset and tilt, which this does not capture.
+7. **Bumps and pits**: local deviations from the residual (grey-level top-hat over
+   `defect.window_um`) higher / deeper than `defect.min_height_nm` (`bump_count`, `pit_count`,
+   `bump_max_height_nm`, `pit_max_depth_nm`, `defect_max_nm`). They are in `objects.csv` with
+   `height_nm`.
+
+The result image is the residual map (red above the sphere, blue below; scale in the text at the
+bottom left) with bumps outlined black and pits white.
+
 ## Known limits
 
 - In the overexposed centre (hatched, 20–80% of the inner area) faint residue cannot be seen,
@@ -354,6 +399,16 @@ The grid overlay on P3 Grating and Mirror is found by its colour relative to the
     discoloured.
   - **Alignment wafer map**: shows the marks in a row until `AlignmentMarkPositions.xlsx`
     (columns Position, X, Y, like `DevicePositionMap.xlsx`) is added.
+- P4 3D profile: first defaults, checked on a synthetic lens (R, tilt, astigmatism, a bump and a
+  stitch ripple are recovered to < 0.01 % / a few %) and on wafer `17013_2_P4_26`.
+  - The apex of every scan shows concentric rings (a measurement effect of the laser microscope on
+    the smooth apex) and the centre sits ~200 nm below the sphere; R fitted to small apertures
+    (10–20 %) is therefore unreliable. `lens.apex_exclude_um` leaves a disk around the apex out.
+  - The stitching measure is the pattern all tiles share; per-tile offsets and tilts are not
+    modelled, so `stitching.remove` (subtract the mean tile before looking for defects) is off.
+  - A regular grid of small marks (about every 530 µm) is counted as pits; whether they are on the
+    lens or come from the microscope is not known yet.
+  - Peak memory ~1.3 GB per scan (the full-resolution file is read before binning).
 
 ## Building labels → a trained model
 
