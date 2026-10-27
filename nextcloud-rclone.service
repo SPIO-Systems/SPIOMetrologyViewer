@@ -8,6 +8,8 @@ Description=Nextcloud at ~/Nextcloud (rclone mount)
 
 [Service]
 Type=notify
+# rclone first uploads files still in its cache (e.g. after a reboot or crash), then mounts
+TimeoutStartSec=infinity
 ExecStartPre=/usr/bin/mkdir -p %h/Nextcloud
 ExecStart=/usr/bin/rclone mount nextcloud: %h/Nextcloud --vfs-cache-mode full --vfs-cache-max-size 50G --vfs-cache-max-age 720h --dir-cache-time 5m --attr-timeout 30s --vfs-fast-fingerprint
 ExecStop=/usr/bin/fusermount3 -u %h/Nextcloud
