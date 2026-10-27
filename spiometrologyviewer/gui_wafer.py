@@ -694,8 +694,10 @@ class DeviceWindow(tk.Toplevel):
         bar.pack(fill="x")
         ttk.Label(bar, text="Show:").pack(side="left")
         self.view_var = tk.StringVar(value="Result (outlined)")
-        box = ttk.Combobox(bar, textvariable=self.view_var, state="readonly", width=20,
-                           values=["Result (outlined)", "Raw image"])
+        views = ["Result (outlined)", "Raw image"]
+        if self.out_dir is not None and (self.out_dir / "plots" / f"{row['image']}.png").exists():
+            views.append("Plots")   # per-image plots (P4 3D profile)
+        box = ttk.Combobox(bar, textvariable=self.view_var, state="readonly", width=20, values=views)
         box.pack(side="left", padx=4)
         box.bind("<<ComboboxSelected>>", lambda e: self._show_image())
         ttk.Button(bar, text="Fit", command=lambda: self.view.fit()).pack(side="left", padx=4)
@@ -803,9 +805,12 @@ class DeviceWindow(tk.Toplevel):
 
     def _load_image(self, which):
         img = None
-        if which == "Result (outlined)" and self.out_dir is not None:
-            bgr = cv2.imread(str(self.out_dir / "overlays" / f"{self.row['image']}.png"))
+        if which in ("Result (outlined)", "Plots") and self.out_dir is not None:
+            folder = "overlays" if which == "Result (outlined)" else "plots"
+            bgr = cv2.imread(str(self.out_dir / folder / f"{self.row['image']}.png"))
             img = None if bgr is None else cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+            if img is None and which == "Plots":
+                return None
         if img is None:
             path = self.tab.raw_image_path(self.row)
             img = io.load_image(path) if path else None

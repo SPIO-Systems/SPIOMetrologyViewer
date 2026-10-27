@@ -27,6 +27,8 @@ class Analysis:
     um_per_px: float = 0.0
     classes: tuple = None      # classes in the overlay legend (None: report.CLASS_COLORS order)
     annotate: object = None    # fn(BGR image) drawing extra things on the result image
+    result_rgb: np.ndarray = None   # base of the result image if not `rgb` (lens3d: the residual map)
+    plots: np.ndarray = None   # RGB image of per-image plots, written to plots/ by the batch run
 
 
 def step_overlay(s, cfg):
@@ -159,7 +161,7 @@ def steps_for(cfg):
 
 
 def initial_state(path):
-    return {"name": Path(path).stem, "raw": io.load_image(path)}
+    return {"name": Path(path).stem, "path": Path(path), "raw": io.load_image(path)}
 
 
 def run_steps(state, cfg, steps=None):

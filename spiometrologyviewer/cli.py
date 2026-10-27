@@ -17,6 +17,7 @@ FEATURE_COLUMNS = [
     "area_um2", "eq_diam_um", "length_um", "elongation", "thinness", "solidity",
     "mean_ratio", "min_ratio", "rel_r", "rel_g", "rel_b", "bright_frac",
     "edge_dist_um", "in_inner", "saturated_frac", "chip_depth_um",
+    "height_nm",   # P4 3D profile: bump height / pit depth
 ]
 
 
@@ -39,7 +40,7 @@ def run_batch(images, out, cfg, crops=True, progress=print, tuning_name=None, te
     (see tuning.register) goes into results.csv as the `tuning` column, the code version as
     `code_version`. Image paths are stored relative to the workspace (see workspace.relative)."""
     out = Path(out)
-    for sub in ("overlays", "thumbs", "thumbs_result"):
+    for sub in ("overlays", "thumbs", "thumbs_result", "plots"):
         (out / sub).mkdir(parents=True, exist_ok=True)
     if crops:
         (out / "crops").mkdir(exist_ok=True)
@@ -58,12 +59,14 @@ def run_batch(images, out, cfg, crops=True, progress=print, tuning_name=None, te
         cv2.imwrite(str(out / "overlays" / f"{a.name}.png"), overlay)
         cv2.imwrite(str(out / "thumbs" / f"{a.name}.jpg"), _thumb(a.rgb[..., ::-1], thumb_px))
         cv2.imwrite(str(out / "thumbs_result" / f"{a.name}.jpg"), _thumb(overlay, thumb_px))
+        if a.plots is not None:
+            cv2.imwrite(str(out / "plots" / f"{a.name}.png"), a.plots[..., ::-1])
 
         for i, o in enumerate(a.objects):
             oid = f"{a.name}_{i:04d}"
             row = {"object_id": oid, "image": a.name, "class": o["class"], "label": "",
                    "cx": round(o["cx"], 1), "cy": round(o["cy"], 1)}
-            row.update({k: o[k] for k in FEATURE_COLUMNS})
+            row.update({k: o.get(k, float("nan")) for k in FEATURE_COLUMNS})
             objects.append(row)
             if crops:
                 cv2.imwrite(str(out / "crops" / f"{oid}.png"), report.crop(a, o, cfg["output"]["crop_px"]))
@@ -71,8 +74,10 @@ def run_batch(images, out, cfg, crops=True, progress=print, tuning_name=None, te
         counts = {}
         for o in a.objects:
             counts[o["class"]] = counts.get(o["class"], 0) + 1
-        dirt = next((m[k] for k in ("dirt_coverage_inner_pct", "dirt_coverage_total_pct") if k in m), float("nan"))
-        progress(f"[{n}/{len(paths)}] {a.name}: dirt {dirt:.2f}%  "
+        dirt = next((m[k] for k in ("dirt_coverage_inner_pct", "dirt_coverage_total_pct") if k in m), None)
+        progress(f"[{n}/{len(paths)}] {a.name}: "
+                 + (f"dirt {dirt:.2f}%  " if dirt is not None else "")
+                 + (f"R {m['roc_um'] / 1000:.4f} mm  " if "roc_um" in m else "")
                  + " ".join(f"{c}={k}" for c, k in sorted(counts.items()))
                  + (f"  offset x {m['offset_x_um']:+.1f} y {m['offset_y_um']:+.1f} um" if "offset_x_um" in m else ""))
 

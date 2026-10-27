@@ -14,6 +14,9 @@ CLASS_COLORS = {
     "discolouration": (255, 160, 0),
     "ring": (180, 105, 255),
     "stain": (30, 60, 140),
+    # P4 3D profile
+    "bump": (0, 0, 0),
+    "pit": (255, 255, 255),
 }
 
 
@@ -23,7 +26,7 @@ def _outline(img, mask, color, thickness=1):
 
 
 def draw_overlay(a):
-    img = cv2.cvtColor(a.rgb, cv2.COLOR_RGB2BGR)
+    img = cv2.cvtColor(a.rgb if a.result_rgb is None else a.result_rgb, cv2.COLOR_RGB2BGR)
 
     # Hatch overexposed area: residue can't be seen there.
     h, w = a.saturated.shape

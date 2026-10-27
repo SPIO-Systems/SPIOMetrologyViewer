@@ -383,7 +383,8 @@ class App:
 
     def _ask_image(self):
         start = self.images[0].parent if self.images else ROOT
-        p = filedialog.askopenfilename(initialdir=start, filetypes=[("TIFF", "*.tif *.tiff"), ("All", "*.*")])
+        p = filedialog.askopenfilename(initialdir=start, filetypes=[("Images", "*.tif *.tiff *.jpg *.png *.lext"),
+                                                                    ("All", "*.*")])
         if p:
             self.open_image(Path(p))
 
@@ -396,7 +397,9 @@ class App:
         try:
             with loading(f"Opening {path.name}..."):
                 self.base = pipeline.initial_state(path)
-                self.images = io.list_images(path.parent)
+                self.images = io.list_images(path.parent, self.cfg.get("input", {}).get("image_glob"))
+                if path.resolve() not in [p.resolve() for p in self.images]:   # opened by hand, other name
+                    self.images = sorted(self.images + [path])
         except Exception as e:
             messagebox.showerror("Open image", f"Could not load {path}:\n{e}")
             return
@@ -620,9 +623,12 @@ class App:
             self.hover.configure(text="")
             return
         x, y = xy
+        s = self.states[-1] if self.states else {}
+        if "hover" in s:   # analyses on their own pixel grid (lens3d: binned height map)
+            self.hover.configure(text=s["hover"](s, x, y))
+            return
         px = self.cfg["um_per_px"]
         text = f"x {x:4d}  y {y:4d} px  ({x * px:6.0f}, {y * px:6.0f} um)   RGB {tuple(int(v) for v in self.base['raw'][y, x])}"
-        s = self.states[-1] if self.states else {}
         if "ratio" in s:
             text += f"   flattened {s['ratio'][y, x]:.2f}"
         self.hover.configure(text=text)
@@ -654,7 +660,7 @@ class MeasurementTab(ttk.Frame):
         try:
             from . import analyses
             analysis = analyses.name_of(self.m.load_config())
-        except OSError as e:
+        except (OSError, ValueError) as e:   # ValueError: unknown analysis (config newer than the code?)
             ttk.Label(self, text=f"Can't read {self.m.config}:\n{e}", foreground="#c00000").pack(pady=20)
             self.wafer_tab = False
             return
