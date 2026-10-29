@@ -242,6 +242,43 @@ which "Export table CSV..." saves. The toolbar zooms, pans and saves the plot as
 Changing a tolerance in the Wafer map tab updates the plots straight away. Double-clicking a dot in
 "Parameter vs parameter" shows that wafer in the Wafer map tab and opens the device.
 
+## Inventory
+
+The **Inventory** tab (after the plates) keeps track of the wafers and stacks. It is saved in the
+workspace, so everyone sees the same inventory:
+
+| File | Content |
+|---|---|
+| `inventory/wafers.csv` | One row per wafer: plate, status, when it was added, who changed its status and when, its stack, notes |
+| `inventory/stacks.csv` | One row per stack: its two items, status, date, who recorded it, the stack it is used in, the good and defective devices when it was recorded, notes |
+
+The files are read again before every change and written straight away. Don't keep them open in
+Excel (Windows locks open files, and saving fails).
+
+- **Wafers**: every wafer with images or results in any measurement type. New wafers are added as
+  *in stock* when the tab is opened, on "Refresh", after "Run on all images" and after a CLI batch
+  (`--measurement` / `--all`).
+  - Per wafer, the devices that pass / warn / fail: the worst status over the plate's measurement
+    types that have results for it, with their saved tolerances. Types on another position map
+    (P3 Alignment: the 5 marks) are left out. Good % = devices that don't fail.
+  - Select wafers and use **Release for stacking** (passed QC; for now this is a human choice),
+    **Reject** or **Back to stock**. Double-click a wafer to open it in its wafer map.
+- **Plan a stack**: choose items A and B: released wafers and available stacks ("Also wafers in
+  stock" adds the rest). It shows both maps and the stacked map. A stacked device is good only if
+  it is good in both items, so the best pairs have their defects on the same positions
+  (dark grey: overlapping defects).
+  - A device is defective if it fails; tick "Count warn as defective" to include warn.
+  - **Best partners for A** ranks every other item by the number of good stacked devices, then by
+    overlapping defects. **Suggest pairing of all** pairs all items, best pair first (greedy).
+  - Click a suggestion to show it. **Record A + B as stacked...** records it as a stack.
+- **Stacks**: the stacks, with their items (substacks open inside their stack). **Add stack (stacked
+  in production)...** records a stack of any two items: wafers or stacks. Its wafers become
+  *stacked*, a substack gets "Used in" the new stack, and the new stack is *available* to be
+  stacked again. Wafers not released yet are allowed after a warning.
+
+Assumptions: a wafer is named after its folder (unique over the plates). Device *n* of one item
+lies on device *n* of the other, all on `DevicePositionMap.xlsx`.
+
 ## Output
 
 | File | Content |

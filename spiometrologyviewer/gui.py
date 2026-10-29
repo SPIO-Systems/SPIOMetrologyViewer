@@ -645,6 +645,7 @@ class MeasurementTab(ttk.Frame):
         super().__init__(master)
         self.root, self.m = root, measurement
         self.app = self.wafer_tab = self.stats = None
+        self.on_results = None   # called after a batch run (the inventory looks for new wafers)
         self.bind("<Map>", lambda e: self.ensure_built())
 
     def ensure_built(self):
@@ -683,9 +684,26 @@ class MeasurementTab(ttk.Frame):
         if self.app is None:
             with loading(f"Loading the step-by-step tuning of {self.m.key}..."):
                 self.app = App(self.root, self.m.config, image, parent=self.tuning, measurement=self.m)
-            self.app.on_batch_done = lambda out: self.wafer_tab.set_results_root(self.m.output)
+            self.app.on_batch_done = lambda out: self._batch_done()
             return True
         return False
+
+    def _batch_done(self):
+        self.wafer_tab.set_results_root(self.m.output)
+        if self.on_results:
+            self.on_results()
+
+    def show_wafer(self, name):
+        """Show wafer `name` in the Wafer map tab. False if it has no results here."""
+        self.ensure_built()
+        if not self.wafer_tab or name not in self.wafer_tab.wafers:
+            return False
+        self.master.select(self)
+        self.notebook.select(self.wafer_tab)
+        if self.wafer_tab.wafer_var.get() != name:
+            self.wafer_tab.wafer_var.set(name)
+            self.wafer_tab._wafer_chosen()
+        return True
 
     def open_in_tuning(self, path):
         self.notebook.select(self.tuning)
@@ -744,8 +762,8 @@ def choose_workspace(root):
 
 
 def build(root, registry=measurements.DEFAULT_REGISTRY):
-    """The window: one tab per plate, inside it one tab per measurement type (MeasurementTab).
-    Returns {"P2/With mirror": MeasurementTab, ...}."""
+    """The window: one tab per plate, inside it one tab per measurement type (MeasurementTab), and
+    the Inventory tab (gui_inventory.InventoryTab). Returns {"P2/With mirror": MeasurementTab, ...}."""
     root.title("SPIOMetrologyViewer")
     root.geometry("1450x950")
     try:
@@ -778,6 +796,21 @@ def build(root, registry=measurements.DEFAULT_REGISTRY):
             tab = MeasurementTab(plate_nb, root, m)
             plate_nb.add(tab, text=f"  {m.name}  ")
             tabs[m.key] = tab
+
+    def show_wafer(plate, name):
+        """From the inventory: the wafer in the first type of its plate that has results for it."""
+        for tab in tabs.values():
+            if tab.m.plate == plate:
+                notebook.select(tab.master)
+                if tab.show_wafer(name):
+                    return True
+        return False
+
+    from .gui_inventory import InventoryTab
+    inventory_tab = InventoryTab(notebook, plates, show_wafer)
+    notebook.add(inventory_tab, text="  Inventory  ")
+    for tab in tabs.values():
+        tab.on_results = inventory_tab.refresh
     if not tabs:
         ttk.Label(root, text=f"No measurement types in {registry}", foreground="#c00000").pack(pady=40)
     return tabs

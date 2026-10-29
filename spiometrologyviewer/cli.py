@@ -11,7 +11,7 @@ from pathlib import Path
 import cv2
 import pandas as pd
 
-from . import __version__, io, measurements, metrics, pipeline, report, tuning, workspace
+from . import __version__, inventory, io, measurements, metrics, pipeline, report, tuning, workspace
 
 FEATURE_COLUMNS = [
     "area_um2", "eq_diam_um", "length_um", "elongation", "thinness", "solidity",
@@ -135,8 +135,12 @@ def run_measurement(m, crops=True, skip_done=False, progress=print):
     name = tuning.register(cfg, tuning.tunings_dir(m.config), template=m.config)
     progress(f"Tuning: {name}")
     with workspace.Lock(m.output):
-        return run_wafers(m.images, m.output, cfg, crops, skip_done, progress, wafers=m.wafers(cfg),
+        done = run_wafers(m.images, m.output, cfg, crops, skip_done, progress, wafers=m.wafers(cfg),
                           tuning_name=name, template=m.config)
+    new = inventory.sync()
+    if new:
+        progress(f"New in the inventory: {', '.join(new)}")
+    return done
 
 
 def main(argv=None):
