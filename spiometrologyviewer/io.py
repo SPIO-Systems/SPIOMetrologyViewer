@@ -1,6 +1,7 @@
 import fnmatch
 import functools
 import json
+import os
 import re
 from pathlib import Path
 
@@ -19,6 +20,32 @@ def list_images(folder, pattern=None):
     """Image files directly in `folder`; with `pattern` (e.g. "*COLOR2D.tif") only matching names."""
     return sorted(p for p in Path(folder).iterdir() if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES
                   and (pattern is None or fnmatch.fnmatch(p.name.lower(), pattern.lower())))
+
+
+def list_images_below(folder, pattern=None):
+    """Image files in `folder` and all its subfolders, sorted by file name (P5: one image per
+    timestamped subfolder). The subfolders are listed in parallel: on Nextcloud each listing takes
+    about a second."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    def scan(d):
+        try:
+            entries = list(os.scandir(d))
+        except OSError:
+            return [], []
+        return ([Path(e.path) for e in entries if e.is_dir()],
+                [Path(e.path) for e in entries if e.is_file() and Path(e.name).suffix.lower() in IMAGE_SUFFIXES
+                 and (pattern is None or fnmatch.fnmatch(e.name.lower(), pattern.lower()))])
+
+    found, todo = [], [Path(folder)]
+    with ThreadPoolExecutor(16) as pool:
+        while todo:
+            dirs = []
+            for sub, files in pool.map(scan, todo):
+                dirs += sub
+                found += files
+            todo = dirs
+    return sorted(found, key=lambda p: p.name)
 
 
 def find_wafers(root, pattern=None, min_images=10):

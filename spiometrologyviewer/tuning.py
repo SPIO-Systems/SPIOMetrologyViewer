@@ -15,7 +15,7 @@ import yaml
 
 from . import io, workspace
 
-ROOT = workspace.ROOT
+ROOT = workspace.PROJECT
 TUNINGS = ROOT / "tunings"
 UNKNOWN = "unknown"
 _IGNORED = ("output",)

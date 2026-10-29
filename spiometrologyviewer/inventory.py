@@ -26,7 +26,7 @@ import pandas as pd
 
 from . import measurements, wafer, workspace
 
-FOLDER = workspace.ROOT / "inventory"
+FOLDER = workspace.PROJECT / "inventory"
 WAFERS_CSV = FOLDER / "wafers.csv"
 STACKS_CSV = FOLDER / "stacks.csv"
 WAFER_COLUMNS = ["wafer", "plate", "status", "added", "status_changed", "changed_by", "stack", "notes"]
@@ -86,14 +86,14 @@ def _types(plates=None):
 
 
 def sync(plates=None, progress=None):
-    """Add every wafer that has images or results in any measurement type and isn't in the
-    inventory yet, as "in stock". Never removes a wafer. Returns the names added."""
+    """Add every wafer that has images (legacy ones too) or results in any measurement type and isn't
+    in the inventory yet, as "in stock". Never removes a wafer. Returns the names added."""
     found = {}
     for m in _types(plates):
         if progress:
             progress(f"Looking for wafers of {m.key}...")
         try:
-            names = list(m.wafers()) + list(wafer.find_results(m.output))
+            names = list(m.found()) + list(wafer.find_results(m.output))
         except Exception:   # unreachable image folder, unreadable config: the other types still count
             continue
         for name in names:

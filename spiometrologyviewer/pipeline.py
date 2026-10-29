@@ -160,8 +160,23 @@ def steps_for(cfg):
     return analyses.steps(cfg)
 
 
-def initial_state(path):
-    return {"name": Path(path).stem, "path": Path(path), "raw": io.load_image(path)}
+def initial_state(path, cfg=None):
+    """The loaded image. A LEXT scan (P2 with mirror: its laser intensity) is binned by the config's
+    input.bin_px, and its scale checked against um_per_px."""
+    raw = io.load_image(path)
+    inp = (cfg or {}).get("input", {})
+    if "bin_px" not in inp:
+        return {"name": Path(path).stem, "path": Path(path), "raw": raw}
+    b = int(inp["bin_px"])
+    if b > 1:
+        h, w = raw.shape[:2]
+        raw = cv2.resize(raw, (w // b, h // b), interpolation=cv2.INTER_AREA)
+    if Path(path).suffix.lower() == ".lext":
+        file_px = io.load_lext(path)["um_per_px"][0] * b
+        if abs(file_px / cfg["um_per_px"] - 1) > 0.01:
+            raise ValueError(f"{Path(path).name} has {file_px:.4f} um/px after binning by {b}, the config says "
+                             f"um_per_px {cfg['um_per_px']}: another objective? Set um_per_px (or input.bin_px).")
+    return {"name": Path(path).stem, "path": Path(path), "raw": raw}
 
 
 def run_steps(state, cfg, steps=None):
@@ -171,10 +186,10 @@ def run_steps(state, cfg, steps=None):
 
 
 def analyse_image(path, cfg):
-    return run_steps(initial_state(path), cfg)["analysis"]
+    return run_steps(initial_state(path, cfg), cfg)["analysis"]
 
 
 def analyse(path, cfg):
     """(Analysis, results row) for one image."""
-    s = run_steps(initial_state(path), cfg)
+    s = run_steps(initial_state(path, cfg), cfg)
     return s["analysis"], s["metrics"]

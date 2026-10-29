@@ -1,0 +1,20 @@
+# A project: its design and where its measurements are (see spiometrologyviewer/project.py). Made from
+# project_template by "New project..." in the GUI.
+name: NEW_PROJECT
+description: ""
+measurements: ..                 # metrology folder (one subfolder per plate), relative to this folder
+plates: [P1, P2, P3, P4, P5]     # plate tabs in this order; a plate without measurement types gets a Browse tab
+
+wafer:
+  units: 33                      # devices per wafer (rows of the position map)
+  positions: DevicePositionMap.xlsx
+
+# Design values: the analyses use these instead of their config values (locked in the tuning tab)
+lens:
+  nominal_roc_um: 16198          # design radius of curvature of the lenses (P4 3D profile)
+mirror:
+  size_um: [1213, 1630]          # mirror width, height (P2 with mirror)
+
+# Wafers scanned before the current folder layout, per plate, e.g. P2: [17013_2_P2_05, ...]. They are
+# listed and can be browsed, but only measurement types with `legacy: only` analyse them.
+legacy: {}

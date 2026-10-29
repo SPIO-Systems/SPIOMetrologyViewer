@@ -10,6 +10,7 @@ import argparse
 import contextlib
 import copy
 import math
+import os
 import queue
 import subprocess
 import sys
@@ -27,10 +28,10 @@ if __name__ == "__main__" and not __package__:
 
 from PIL import Image, ImageTk
 
-from . import cli, gui_steps, io, measurements, pipeline, tuning, workspace
+from . import analyses, cli, gui_steps, io, measurements, pipeline, project, tuning, workspace
 from .gui_steps import get_param, set_param
 
-ROOT = workspace.ROOT
+ROOT = workspace.PROJECT
 PANEL_WIDTH = 420  # at 96 dpi; scaled to the screen in App
 WHEEL_EVENTS = ("<MouseWheel>", "<Button-4>", "<Button-5>")   # Windows / macOS, Linux (X11) up, down
 
@@ -166,9 +167,10 @@ class ImageView(tk.Canvas):
 
 
 class ParamRow(ttk.Frame):
-    """Label, slider and spin box for one parameter."""
+    """Label, slider and spin box for one parameter. `locked`: a design value of the project
+    (project.yaml), shown but not changeable here."""
 
-    def __init__(self, master, spec, value, default, on_change, wrap):
+    def __init__(self, master, spec, value, default, on_change, wrap, locked=False):
         super().__init__(master)
         self.spec, self.on_change = spec, on_change
         self.decimals = 0 if spec.integer else max(0, -math.floor(math.log10(spec.step) + 1e-9))
@@ -179,12 +181,15 @@ class ParamRow(ttk.Frame):
         self.default_lbl = ttk.Label(self, foreground="#888")
         self.default_lbl.grid(row=0, column=1, sticky="e")
         tk.Scale(self, from_=lo, to=hi, resolution=spec.step, orient="horizontal", showvalue=False,
-                 variable=self.var, highlightthickness=0).grid(row=1, column=0, sticky="ew")
+                 variable=self.var, highlightthickness=0,
+                 state="disabled" if locked else "normal").grid(row=1, column=0, sticky="ew")
         spin_kw = {} if spec.integer else {"format": f"%.{self.decimals}f"}
         ttk.Spinbox(self, from_=lo, to=hi, increment=spec.step, textvariable=self.var, width=9,
-                    **spin_kw).grid(row=1, column=1, padx=(6, 0))
-        if spec.help:
-            ttk.Label(self, text=spec.help, foreground="#666", wraplength=wrap,
+                    state="disabled" if locked else "normal", **spin_kw).grid(row=1, column=1, padx=(6, 0))
+        help_text = "\n".join(t for t in (spec.help, "Design value: set in the project's project.yaml." if locked
+                                          else "") if t)
+        if help_text:
+            ttk.Label(self, text=help_text, foreground="#666", wraplength=wrap,
                       font=("Segoe UI", 8)).grid(row=2, column=0, columnspan=2, sticky="w")
         self.columnconfigure(0, weight=1)
         self.default = default
@@ -249,8 +254,12 @@ class App:
         self.on_batch_done = None         # called with the output folder after a successful batch run
         self.measurement = measurement
         self.config_path = Path(measurement.config if measurement else config_path)
-        self.defaults = io.load_config(self.config_path)
+        self.defaults = measurement.load_config() if measurement else io.load_config(self.config_path)
         self.cfg = copy.deepcopy(self.defaults)
+        # design values from project.yaml: shown locked (see project.DESIGN)
+        self.locked = (list(measurement.project.design_paths(analyses.name_of(self.cfg)))
+                       if measurement is not None and measurement.project is not None else [])
+        self.wafer_folders = {}  # wafer label -> image folder, for the wafer box (measurement only)
         # the region (mirror / lens) is not a tunable parameter, so the steps stay the same
         self.step_ui = gui_steps.steps_for(self.cfg)
         self.step_funcs = dict(pipeline.steps_for(self.cfg))
@@ -273,8 +282,11 @@ class App:
         self._show_step()
         root.after(50, self._poll)
 
-        if image is None and measurement is not None:
-            image = measurement.first_image(self.cfg)
+        if measurement is not None:
+            self.wafer_folders = measurement.browsable(self.cfg)
+            self.wafer_box.configure(values=list(self.wafer_folders))
+            if image is None:
+                image = measurement.first_image(self.cfg, self.wafer_folders)
         if image is not None:
             self.open_image(Path(image))
 
@@ -284,6 +296,12 @@ class App:
         bar = ttk.Frame(self.container, padding=(6, 4))
         bar.pack(side="top", fill="x")
         ttk.Button(bar, text="Open image...", command=self._ask_image).pack(side="left")
+        self.wafer_var = tk.StringVar()
+        if self.measurement is not None:
+            ttk.Label(bar, text="Wafer:").pack(side="left", padx=(8, 2))
+            self.wafer_box = ttk.Combobox(bar, textvariable=self.wafer_var, state="readonly", width=30)
+            self.wafer_box.pack(side="left")
+            self.wafer_box.bind("<<ComboboxSelected>>", lambda e: self._wafer_chosen())
         ttk.Button(bar, text="<", width=3, command=lambda: self._step_image(-1)).pack(side="left", padx=(8, 0))
         self.image_box = ttk.Combobox(bar, state="readonly", width=34)
         self.image_box.pack(side="left")
@@ -366,8 +384,9 @@ class App:
         self.params.clear()
         self.rows = []
         for spec in ui.params:
+            locked = any(tuple(spec.path[:len(p)]) == tuple(p) for p in self.locked)
             row = ParamRow(self.params.inner, spec, get_param(self.cfg, spec.path),
-                           get_param(self.defaults, spec.path), self._param_changed, self.pw - 50)
+                           get_param(self.defaults, spec.path), self._param_changed, self.pw - 50, locked)
             row.pack(fill="x", pady=(0, 8), padx=(0, 6))
             self.rows.append(row)
 
@@ -393,16 +412,36 @@ class App:
             i = (self.image_box.current() + d) % len(self.images)
             self.open_image(self.images[i])
 
+    def _wafer_chosen(self):
+        folder = self.wafer_folders.get(self.wafer_var.get())
+        if folder is None:
+            return
+        with loading(f"Looking for images in {folder.name}..."):
+            images = self.measurement.images_of(folder, self.cfg)
+        if images:
+            self.open_image(images[0])
+        else:
+            messagebox.showwarning("Wafer", f"No images in {folder}")
+
+    def _wafer_of(self, path):
+        """(label, images) of the measurement's wafer holding `path`, else (None, images next to it)."""
+        m = self.measurement
+        for label, folder in self.wafer_folders.items():
+            if path.parent == folder or (m.recursive and folder in path.parents):
+                return label, m.images_of(folder, self.cfg)
+        return None, io.list_images(path.parent, self.cfg.get("input", {}).get("image_glob"))
+
     def open_image(self, path):
         try:
             with loading(f"Opening {path.name}..."):
-                self.base = pipeline.initial_state(path)
-                self.images = io.list_images(path.parent, self.cfg.get("input", {}).get("image_glob"))
+                self.base = pipeline.initial_state(path, self.cfg)
+                label, self.images = self._wafer_of(path)
                 if path.resolve() not in [p.resolve() for p in self.images]:   # opened by hand, other name
                     self.images = sorted(self.images + [path])
         except Exception as e:
             messagebox.showerror("Open image", f"Could not load {path}:\n{e}")
             return
+        self.wafer_var.set(label or "")
         self.image_box.configure(values=[p.name for p in self.images])
         self.image_box.current([p.resolve() for p in self.images].index(path.resolve()))
         self._invalidate(0)
@@ -665,6 +704,11 @@ class MeasurementTab(ttk.Frame):
             ttk.Label(self, text=f"Can't read {self.m.config}:\n{e}", foreground="#c00000").pack(pady=20)
             self.wafer_tab = False
             return
+        if analysis == "none":   # plate not implemented yet: only browse its images
+            from .gui_browse import BrowseTab
+            BrowseTab(self, self.m).pack(fill="both", expand=True)
+            self.wafer_tab = False
+            return
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=True)
         stats_frame = ttk.Frame(self.notebook)
@@ -714,7 +758,7 @@ class MeasurementTab(ttk.Frame):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--measurements", type=Path, default=measurements.DEFAULT_REGISTRY,
-                    help="plates and measurement types (default measurements.yaml)")
+                    help="plates and measurement types (default the current project's measurements.yaml)")
     args = ap.parse_args(argv)
     try:  # sharp rendering on high-DPI Windows screens
         import ctypes
@@ -729,28 +773,42 @@ def main(argv=None):
                              f"To choose another folder, delete {workspace.SETTINGS}.", parent=root)
         root.destroy()
         return
-    if not args.measurements.exists() and choose_workspace(root):
-        root.destroy()   # the workspace is read at import: start again with the new one
-        subprocess.Popen([sys.executable, "-m", "spiometrologyviewer.gui"], cwd=workspace.REPO)
-        return
+    if not args.measurements.exists():
+        if workspace.is_workspace(workspace.ROOT) and workspace.CONFIGURED is not None:
+            root.withdraw()   # a workspace without projects yet
+            messagebox.showinfo("SPIOMetrologyViewer", f"The workspace {workspace.ROOT} has no projects yet. "
+                                "Set up the first one: its measurement (metrology) folder, plates and design.",
+                                parent=root)
+            chosen = new_project(root)
+        else:
+            chosen = choose_workspace(root)
+        if chosen:
+            restart(root)   # the workspace and project are read at import: start again with the new ones
+            return
+        root.deiconify()
     build(root, args.measurements)
     root.mainloop()
 
 
+def restart(root):
+    root.destroy()
+    subprocess.Popen([sys.executable, "-m", "spiometrologyviewer.gui"], cwd=workspace.REPO)
+
+
 def choose_workspace(root):
-    """First start on a PC (no measurements.yaml found): ask for the shared workspace folder, e.g.
-    the 24 SPIOMetrologyViewer folder in Nextcloud, and remember it in settings.yaml. An empty folder is set up
-    from workspace_template. True if a workspace was chosen."""
+    """First start on a PC (no workspace found): ask for the shared workspace folder, e.g. the
+    24 SPIOMetrologyViewer folder in Nextcloud, and remember it in settings.yaml. An empty folder becomes a
+    new workspace (its first project is set up on the next start). True if a workspace was chosen."""
     root.withdraw()
     messagebox.showinfo("SPIOMetrologyViewer", "Choose the shared SPIOMetrologyViewer workspace folder (e.g. the "
-                        "24 SPIOMetrologyViewer folder in your Nextcloud). It holds measurements.yaml, the configs, "
-                        "images and results.", parent=root)
+                        "24 SPIOMetrologyViewer folder in your Nextcloud). It holds projects.yaml, the list of "
+                        "projects.", parent=root)
     folder = filedialog.askdirectory(title="SPIOMetrologyViewer workspace folder", parent=root)
     if not folder:
         return False
     if not workspace.is_workspace(folder):
         if any(Path(folder).iterdir()):
-            messagebox.showerror("SPIOMetrologyViewer", f"{folder} has no measurements.yaml: that's not the "
+            messagebox.showerror("SPIOMetrologyViewer", f"{folder} has no {workspace.PROJECTS_NAME}: that's not the "
                                  "workspace folder.", parent=root)
             return False
         if not messagebox.askyesno("SPIOMetrologyViewer", f"{folder} is empty. Set up a new workspace in it?",
@@ -761,10 +819,148 @@ def choose_workspace(root):
     return True
 
 
+def new_project(root):
+    """Dialog for a new project: name, metrology folder and design. The project folder is made in
+    the metrology folder (SPIOMetrologyViewer/, from project_template) and added to projects.yaml; an
+    existing project folder there is only added. True if a project was made (it is then this PC's
+    current project; restart to open it)."""
+    dlg = tk.Toplevel(root)
+    dlg.title("New project")
+    dlg.transient(root if root.winfo_viewable() else None)
+    frm = ttk.Frame(dlg, padding=12)
+    frm.pack(fill="both", expand=True)
+    tpl = project.load(workspace.TEMPLATE)
+    fields = {
+        "name": ("Project name (e.g. 17013_2)", ""),
+        "metrology": ("Metrology folder (one subfolder per plate)", ""),
+        "description": ("Description", ""),
+        "plates": ("Plates (comma separated)", ", ".join(tpl.plates)),
+        "units": ("Units (devices) per wafer", str(tpl.units or "")),
+        "roc": ("Lens: nominal radius of curvature [um]", str(tpl.design["lens"].get("nominal_roc_um", ""))),
+        "mirror": ("Mirror: width, height [um]", ", ".join(str(v) for v in tpl.design["mirror"].get("size_um", []))),
+    }
+    vars_ = {}
+    for i, (key, (label, value)) in enumerate(fields.items()):
+        ttk.Label(frm, text=label).grid(row=i, column=0, sticky="w", pady=2)
+        vars_[key] = tk.StringVar(value=value)
+        ttk.Entry(frm, textvariable=vars_[key], width=60).grid(row=i, column=1, sticky="ew", pady=2)
+    ttk.Button(frm, text="Browse...", command=lambda: vars_["metrology"].set(
+        filedialog.askdirectory(title="Metrology folder of the project", parent=dlg) or vars_["metrology"].get())
+               ).grid(row=1, column=2, padx=(6, 0))
+    ttk.Label(frm, text="Measurement types, configs and tolerances start from the template (project_template/); "
+                        "edit measurements.yaml in the project folder afterwards for other folder layouts.",
+              foreground="#666", wraplength=520).grid(row=len(fields), column=0, columnspan=3, sticky="w", pady=(8, 0))
+    done = {"ok": False}
+
+    def create():
+        name, metrology = vars_["name"].get().strip(), vars_["metrology"].get().strip()
+        if not name or not metrology or not Path(metrology).is_dir():
+            messagebox.showerror("New project", "Give a name and an existing metrology folder.", parent=dlg)
+            return
+        if name in workspace.projects():
+            messagebox.showerror("New project", f"There is a project {name} already.", parent=dlg)
+            return
+        folder = Path(metrology) / workspace.PROJECT_FOLDER
+        try:
+            if (folder / project.FILE).exists():
+                if not messagebox.askyesno("New project", f"{folder} holds a project already. Add it as {name}?",
+                                           parent=dlg):
+                    return
+            else:
+                units = vars_["units"].get().strip()
+                mirror = [float(v) for v in vars_["mirror"].get().replace(",", " ").split()]
+                roc = vars_["roc"].get().strip()
+                workspace.create_project(folder, name, metrology)
+                project.save_design(folder, vars_["description"].get().strip(),
+                                    [p.strip() for p in vars_["plates"].get().split(",") if p.strip()],
+                                    int(units) if units else None,
+                                    {"lens": {"nominal_roc_um": float(roc) if roc else None},
+                                     "mirror": {"size_um": mirror or None}})
+            workspace.register_project(name, folder)
+            workspace.save_settings(project=name)
+        except (OSError, ValueError) as e:
+            messagebox.showerror("New project", f"Could not set up the project:\n{e}", parent=dlg)
+            return
+        done["ok"] = True
+        dlg.destroy()
+
+    btns = ttk.Frame(frm)
+    btns.grid(row=len(fields) + 1, column=0, columnspan=3, sticky="e", pady=(12, 0))
+    ttk.Button(btns, text="Create", command=create).pack(side="left")
+    ttk.Button(btns, text="Cancel", command=dlg.destroy).pack(side="left", padx=(6, 0))
+    frm.columnconfigure(1, weight=1)
+    dlg.grab_set()
+    dlg.wait_window()
+    return done["ok"]
+
+
+def project_bar(root, tabs):
+    """The current project, to switch to another one (the program restarts) or make a new one."""
+    bar = ttk.Frame(root, padding=(8, 4))
+    names = list(workspace.projects())
+    current = workspace.PROJECT_NAME or ""
+    ttk.Label(bar, text="Project:", font=("Segoe UI", 10, "bold")).pack(side="left")
+    var = tk.StringVar(value=current)
+    box = ttk.Combobox(bar, textvariable=var, values=names, state="readonly", width=16)
+    box.pack(side="left", padx=4)
+    warn = ""
+    try:
+        p = project.load()
+        info = " ".join(t for t in (p.description, f"({len(p.plates)} plates, {p.units} units per wafer)"
+                                    if p.plates and p.units else "") if t)
+        if p.units and p.positions.exists():
+            from . import wafer
+            n = len(wafer.load_positions(p.positions))
+            if n != p.units:
+                warn = f"{p.positions.name} has {n} positions, project.yaml says {p.units} units per wafer"
+    except Exception as e:
+        info = f"Can't read project.yaml: {e}"
+    ttk.Label(bar, text=info, foreground="#555").pack(side="left", padx=8)
+    if warn:
+        ttk.Label(bar, text=warn, foreground="#c05000").pack(side="left", padx=8)
+
+    def busy():
+        return any(t.app is not None and t.app.batch_running for t in tabs.values())
+
+    def switch(e=None):
+        name = var.get()
+        if name == current:
+            return
+        if busy():
+            messagebox.showwarning("Project", "A batch run is still going: switch the project when it is done.",
+                                   parent=root)
+            var.set(current)
+            return
+        if not messagebox.askokcancel("Project", f"Switch to project {name}? The program restarts.", parent=root):
+            var.set(current)
+            return
+        workspace.save_settings(project=name)
+        restart(root)
+
+    def new():
+        if new_project(root) and messagebox.askyesno("New project", "Open the new project now? The program restarts.",
+                                                     parent=root):
+            restart(root)
+        else:
+            box.configure(values=list(workspace.projects()))
+
+    def open_folder():
+        folder = str(workspace.PROJECT)
+        if sys.platform.startswith("win"):
+            os.startfile(folder)
+        else:
+            subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", folder])
+
+    box.bind("<<ComboboxSelected>>", switch)
+    ttk.Button(bar, text="Open project folder", command=open_folder).pack(side="right")
+    ttk.Button(bar, text="New project...", command=new).pack(side="right", padx=6)
+    return bar
+
+
 def build(root, registry=measurements.DEFAULT_REGISTRY):
     """The window: one tab per plate, inside it one tab per measurement type (MeasurementTab), and
     the Inventory tab (gui_inventory.InventoryTab). Returns {"P2/With mirror": MeasurementTab, ...}."""
-    root.title("SPIOMetrologyViewer")
+    root.title(f"SPIOMetrologyViewer - {workspace.PROJECT_NAME}" if workspace.PROJECT_NAME else "SPIOMetrologyViewer")
     root.geometry("1450x950")
     try:
         root.state("zoomed")                  # Windows
@@ -787,6 +983,7 @@ def build(root, registry=measurements.DEFAULT_REGISTRY):
         ttk.Label(root, text=f"Can't read {registry}:\n{e}", foreground="#c00000").pack(pady=40)
         return {}
     tabs = {}
+    project_bar(root, tabs).pack(side="top", fill="x")
     notebook = ttk.Notebook(root, style="Plate.TNotebook")
     notebook.pack(fill="both", expand=True)
     for plate, types in plates.items():

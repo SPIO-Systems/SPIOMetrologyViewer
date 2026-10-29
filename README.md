@@ -6,10 +6,22 @@ with features, so a labelled dataset builds up as you use it.
 
 ## Getting started
 
-The code is on GitHub; the data is in a shared **workspace** folder on Nextcloud: `measurements.yaml`,
-`configs/`, `tolerances/`, `tunings/`, the position maps, `Images/` and `output/`. Everyone works
-in the same workspace, so tunings, tolerances and results are shared as soon as Nextcloud has
-synced them.
+The code is on GitHub. The data is on Nextcloud, organised in **projects** (e.g. `17013_2`):
+
+- The shared **workspace** folder (`8 Software/24 SPIOMetrologyViewer`) holds `projects.yaml`, the
+  list of projects.
+- Each project has a **project folder** inside its metrology folder, e.g.
+  `1 Projects/…/05 Metrology/17013_2/SPIOMetrologyViewer/`. It holds `project.yaml` (the design: plates,
+  units per wafer, lens and mirror values, legacy wafers), `measurements.yaml`, `configs/`,
+  `tolerances/`, `tunings/`, the position map, `inventory/` and `output/`.
+- The measurement files are read where the microscopes saved them, in the metrology folder
+  (`05 Metrology/17013_2/P1 … P5/<wafer>/`). They are not copied.
+
+Everyone works in the same folders, so tunings, tolerances and results are shared as soon as Nextcloud
+has synced them. The bar at the top of the window shows the current project. Pick another one there
+(the program restarts), or make one with **New project...**: give its name, its metrology folder
+and the design. Its project folder is made from `project_template/`. Each PC remembers its current
+project in `settings.yaml`.
 
 One-time setup on a Windows PC (Linux: see below):
 
@@ -20,7 +32,9 @@ One-time setup on a Windows PC (Linux: see below):
    `cd %USERPROFILE%\Documents` then `git clone https://github.com/SPIO-Victor/SPIOMetrologyViewer.git`.
 4. Double-click `start.bat` in the clone. The first start installs the Python packages (about
    2 minutes). Then it asks for the workspace: choose the Nextcloud `24 SPIOMetrologyViewer` folder. The
-   choice is saved in `settings.yaml` in the clone. Delete that file to choose again.
+   choice is saved in `settings.yaml` in the clone. Delete that file to choose again. Nextcloud must
+   also have the projects' metrology folders (the whole `SPIO Systems` folder, or at least
+   `1 Projects` next to `8 Software`).
 
 After that, start the program with `start.bat` (make a desktop shortcut to it). Every start fetches
 the latest version from GitHub (`git pull`) and installs new packages if `requirements.txt` changed.
@@ -66,7 +80,9 @@ Working together:
 - **Tunings** are named after who made them (`..._20261026_101500_vit.yaml`).
 - **Saved parameters:** "Save parameters..." over a file in `configs/` changes the defaults for
   everyone.
-- **Image paths** in `results.csv` are relative to the workspace, so results open on every PC.
+- **Paths** in `projects.yaml` and the image paths in `results.csv` are relative to the workspace
+  (`../../1 Projects/…`), so they work on every PC with the same Nextcloud folder tree. Paths inside a
+  project folder are relative to it: the metrology folder is `..`.
 
 ### Releasing changes (for the maintainer)
 
@@ -75,27 +91,45 @@ they start the program. When a change can alter the results, bump `__version__` 
 `spiometrologyviewer/__init__.py`. It goes into `results.csv` as `code_version`, and Statistics warns when
 the ticked wafers were made with different versions (`?` = before versions were recorded).
 
-When adding a package, add it with its version to `requirements.txt`. `workspace_template/` holds
-the defaults for a new, empty workspace. The live configs and tolerances are those in the workspace.
+When adding a package, add it with its version to `requirements.txt`. `project_template/` holds
+the defaults for a new project. The live configs and tolerances are those in each project folder.
 
 Where the workspace is found: the environment variable `SPIOMETROLOGYVIEWER_WORKSPACE`, else
-`settings.yaml` (`workspace: <folder>`), else the repo folder itself. Data in the repo folder is
-ignored by git (see `.gitignore`).
+`settings.yaml` (`workspace: <folder>`), else the repo folder itself. The current project:
+`SPIOMETROLOGYVIEWER_PROJECT`, else `settings.yaml` (`project: '17013_2'`), else the first in
+`projects.yaml`. A workspace without `projects.yaml` is its own project (as before projects). Data in
+the repo folder is ignored by git (see `.gitignore`).
 
 ## Plates and measurement types
 
-The wafers go through several plates (P2, P3, ...), and each plate has images of one or more
-**measurement types**. Each type has its own images, parameters, tolerances and results. They are
-listed in `measurements.yaml`:
+The wafers go through several plates (P1 … P5, listed in `project.yaml`), and each plate has images of
+one or more **measurement types**. Each type has its own images, parameters, tolerances and results.
+They are listed in the project's `measurements.yaml`. Image folders are relative to the metrology
+folder. For 17013_2:
 
 | Plate | Type | Images | Analysed |
 |---|---|---|---|
-| P2 | With mirror | `Images/P2/WithMirror/<wafer>/` | the mirror rectangle, plus its offset to the lens |
-| P2 | Without mirror | `Images/P2/WithoutMirror/<wafer>/` | the lens surface (no mirror, so no offset, rotation or edge chips) |
-| P3 | Alignment | `Images/P3/<wafer>/Alignment/` | offset of the dark-line pattern vs the bright-line pattern; particles, fibres, rings, stains |
-| P3 | Grating | `Images/P3/<wafer>/Grading/` | particles, streaks (comets) and discoloured spots on the grating |
-| P3 | Mirror | `Images/P3/<wafer>/Mirror/` | small particles and large defects on the cream mirror (gold strip ignored) |
-| P4 | 3D profile | the project's metrology folder, `…/05 Metrology/17013_2/P4/<wafer>/` (`.lext`) | lens shape from LEXT 3D scans: radius of curvature, residual to the sphere, Zernike terms, stitching, bumps and pits |
+| P1 | Browse | `P1/<wafer>/` (any image, also in subfolders) | nothing yet: the images can be browsed |
+| P2 | Without mirror | `P2/<wafer>/*COLOR2D.tif` | the lens surface (no mirror, so no offset, rotation or edge chips) |
+| P2 | With mirror | `P2/<wafer>/coated/*_G001.lext` (or `coating/`) | the mirror rectangle, plus its offset to the lens, on the LEXT laser intensity |
+| P2 | With mirror (legacy) | `P2/<wafer>/*COLOR2D.tif` of the legacy wafers | as With mirror, with the COLOR2D parameters |
+| P3 | Alignment | `P3/<wafer>/Alignment/` | offset of the dark-line pattern vs the bright-line pattern; particles, fibres, rings, stains |
+| P3 | Grating | `P3/<wafer>/Grading/` | particles, streaks (comets) and discoloured spots on the grating |
+| P3 | Mirror | `P3/<wafer>/Mirror/` | small particles and large defects on the cream mirror (gold strip ignored) |
+| P4 | 3D profile | `P4/<wafer>/*_P4_*.lext` | lens shape from LEXT 3D scans: radius of curvature, residual to the sphere, Zernike terms, stitching, bumps and pits |
+| P5 | Browse | `P5/<wafer>/<timestamp>/*_C.tif` | nothing yet: the images can be browsed |
+
+A plate in `project.yaml` without measurement types gets a Browse tab by itself (`analysis: none`).
+
+**Legacy wafers.** Wafers scanned before the current folder layout are listed under `legacy:` in
+`project.yaml`. For 17013_2 that is P2_04_f … P2_09, whose own folder holds the COLOR2D images *with*
+mirror. In every type they are listed in the step-by-step tab's wafer box as "(legacy, not analysed)".
+They can be browsed there, but batch runs skip them, except in a type with `legacy: only`
+(P2 With mirror (legacy)), which analyses only them. Such a type is hidden when the project has no
+legacy wafers for its plate.
+
+**Design values** in `project.yaml` (`lens.nominal_roc_um`, `mirror.size_um`) replace those in the
+configs of the analyses that use them. The tuning tab shows them locked.
 
 Per type:
 
@@ -106,19 +140,20 @@ Per type:
 - `tolerances/<type>.yaml`: pass / warn / fail cutoffs.
 - `output/<plate>/<type>/<wafer>/`: results.
 
-Only `*COLOR2D` images are analysed for P2 and P3 (`input.image_glob`: `.tif` for P2, `.jpg` for P3).
-Wafers that only have LSM2D laser scans (`17013_2_P2_102testBeforeCleaning`,
-`17013_2_T2_102_afterCleaning`) are left out for now. P4 reads the LEXT 3D scans (`*_P4_*.lext`, one
-per lens) where the microscope saved them, in the project folder: `images:` in `measurements.yaml` is
-relative to the workspace (`../../1 Projects/…`), so it works on every PC that has the `SPIO Systems`
-folder in its Nextcloud. Each scan is ~120 MB (4 GB per wafer), read over the network.
+The `input.image_glob` of a config picks the files: `*COLOR2D` images for P2 without mirror and P3
+(`.tif` for P2, `.jpg` for P3), `.lext` scans for P2 with mirror and P4. Wafers that only have LSM2D
+laser scans (`17013_2_T2_102`) are left out. LEXT scans are read over the network: about 120 MB each
+for P4, 4 GB per wafer. P2 with mirror uses the scan's laser intensity, binned 4 × 4 (`input.bin_px`)
+to 2.50 µm/px, close to the COLOR2D images' 2.51. A scan at another scale stops with an error rather
+than being measured wrongly.
 
 ### Adding a plate or measurement type
 
-Add it to `measurements.yaml`, copy a config of the same analysis to `configs/`, and restart the GUI.
-The tolerances file is created when you first press "Save" in its wafer map. If the type folder
-sits inside the wafer folder (`Images/P3/<wafer>/Mirror`), write `images: Images/P3/*/Mirror`;
-the wafer is then named after the `*` folder.
+Add it to the project's `measurements.yaml` (and the plate to `plates:` in `project.yaml`), copy a config
+of the same analysis to `configs/`, and restart the GUI. The tolerances file is created when you first
+press "Save" in its wafer map. If the type folder sits inside the wafer folder (`P3/<wafer>/Mirror`),
+write `images: P3/*/Mirror`; the wafer is then named after the `*` folder. With `recursive: true`,
+a wafer's images may also lie in subfolders (P5).
 
 ## Run
 
@@ -128,7 +163,8 @@ the wafer is then named after the `*` folder.
 .venv\Scripts\python -m spiometrologyviewer.gui                                   # the GUI
 .venv\Scripts\python -m spiometrologyviewer.cli --measurement "P2/With mirror"    # batch for one type
 .venv\Scripts\python -m spiometrologyviewer.cli --all --skip-done                 # every type, new wafers only
-.venv\Scripts\python tools\cluster_crops.py output\P2\WithMirror\<wafer> --k 8   # optional: group crops for review
+.venv\Scripts\python -m spiometrologyviewer.cli --project 17013_2 --all           # another project than this PC's current one
+.venv\Scripts\python tools\cluster_crops.py <project folder>\output\P2\WithMirror\<wafer> --k 8   # optional: group crops
 ```
 
 On Linux, use `.venv/bin/python` and `/` in the paths.
@@ -145,7 +181,10 @@ One tab per plate; inside it, one tab per measurement type; inside that:
 - **Statistics** (opens first): plots comparing the type's wafers (below).
 - **Wafer map**: one wafer at a time, device by device.
 - **Step-by-step tuning**: the pipeline on one image, with that type's parameters. It is only
-  loaded when you first open it.
+  loaded when you first open it. Its wafer box lists every wafer with images, legacy ones too.
+
+Types without an analysis (P1, P5) have one **Browse** tab instead: pick a wafer and step through its
+images.
 
 ## Step-by-step tuning
 
@@ -245,7 +284,7 @@ Changing a tolerance in the Wafer map tab updates the plots straight away. Doubl
 ## Inventory
 
 The **Inventory** tab (after the plates) keeps track of the wafers and stacks. It is saved in the
-workspace, so everyone sees the same inventory:
+project folder, so everyone sees the same inventory of a project:
 
 | File | Content |
 |---|---|

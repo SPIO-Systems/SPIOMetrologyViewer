@@ -8,13 +8,14 @@ The config key `analysis` picks one; P2 configs without it fall back to `region`
     grating     P3 grating: particles, streaks and discoloured spots
     alignment   P3 alignment marks: dark-line pattern offset vs the bright-line pattern, and dirt
     lens3d      P4 3D profile: lens shape from LEXT 3D scans (radius of curvature, residual, defects)
+    none        no analysis: the images can only be browsed (plates not implemented yet: P1, P5)
 
 Each of the P3 / P4 modules defines STEPS (pipeline), step_ui() (tuning GUI) and METRICS (tolerances).
 """
 import importlib
 
 MODULES = {"p3_mirror": "p3mirror", "grating": "grating", "alignment": "alignment", "lens3d": "lens3d"}
-NAMES = ["mirror", "lens", *MODULES]
+NAMES = ["mirror", "lens", *MODULES, "none"]
 
 
 def name_of(cfg):
@@ -37,6 +38,8 @@ def steps(cfg):
         return pipeline.STEPS
     if name == "lens":
         return pipeline.LENS_STEPS
+    if name == "none":
+        return []
     return _module(name).STEPS
 
 
@@ -51,4 +54,4 @@ def step_ui(cfg):
 
 
 def default_metrics(name):
-    return _module(name).METRICS
+    return [] if name == "none" else _module(name).METRICS

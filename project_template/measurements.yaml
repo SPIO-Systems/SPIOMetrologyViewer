@@ -1,0 +1,75 @@
+# Plates and their measurement types. Each plate gets a tab in the GUI, and each measurement type a
+# tab inside it, with its own statistics, wafer map and step-by-step tuning.
+#
+#   images:      wafer folders, relative to the project's metrology folder (project.yaml `measurements`).
+#                A "*" stands for the wafer folder, e.g. P3/*/Mirror (the wafer is named after the "*" part);
+#                without "*", every folder below holding enough images is a wafer
+#   config:      pipeline parameters (written by "Save parameters..." in the tuning tab); `analysis: none`
+#                in it makes a browse-only type (no pipeline, tolerances or batch run)
+#   tolerances:  pass / warn / fail cutoffs (written by "Save" in the wafer map tab)
+#   output:      batch results, one folder per wafer
+#   positions:   device positions on the wafer (optional, default the position map in project.yaml)
+#   recursive:   true: a wafer's images may lie in subfolders of its folder, and every folder matching
+#                `images` counts as a wafer (min_images is not checked; optional, default false)
+#   legacy:      wafers listed as legacy in project.yaml: "skip" (default; listed and browsable, not
+#                analysed) or "only" (only they are analysed, e.g. with the parameters of their old layout)
+# config, tolerances, output and positions are relative to this file.
+
+P1:
+  Browse:       # not analysed yet
+    images: P1/*
+    config: configs/P1_browse.yaml
+    tolerances: tolerances/P1_browse.yaml
+    output: output/P1/Browse
+    recursive: true
+
+P2:
+  Without mirror:   # the wafer folder: the uncoated lenses
+    images: P2/*
+    config: configs/P2_without_mirror.yaml
+    tolerances: tolerances/P2_without_mirror.yaml
+    output: output/P2/WithoutMirror
+  With mirror:      # its coated (or coating) subfolder: LEXT scans after the mirror coating
+    images: P2/*/coat*
+    config: configs/P2_with_mirror_lext.yaml
+    tolerances: tolerances/P2_with_mirror_lext.yaml
+    output: output/P2/WithMirror
+  With mirror (legacy):   # older wafers whose own folder holds COLOR2D images with the mirror
+    images: P2/*
+    config: configs/P2_with_mirror.yaml
+    tolerances: tolerances/P2_with_mirror.yaml
+    output: output/P2/WithMirrorLegacy
+    legacy: only
+
+P3:
+  Alignment:
+    images: P3/*/Alignment
+    config: configs/P3_alignment.yaml
+    tolerances: tolerances/P3_alignment.yaml
+    output: output/P3/Alignment
+    positions: AlignmentMarkPositions.xlsx   # not there yet: the 5 marks are then shown in a row
+  Grating:
+    images: P3/*/Grading
+    config: configs/P3_grating.yaml
+    tolerances: tolerances/P3_grating.yaml
+    output: output/P3/Grating
+  Mirror:
+    images: P3/*/Mirror
+    config: configs/P3_mirror.yaml
+    tolerances: tolerances/P3_mirror.yaml
+    output: output/P3/Mirror
+
+P4:
+  3D profile:   # LEXT 3D scans
+    images: P4/*
+    config: configs/P4_3d.yaml
+    tolerances: tolerances/P4_3d.yaml
+    output: output/P4/3D
+
+P5:
+  Browse:       # not analysed yet; one image per timestamped subfolder of the wafer folder
+    images: P5/*
+    config: configs/P5_browse.yaml
+    tolerances: tolerances/P5_browse.yaml
+    output: output/P5/Browse
+    recursive: true

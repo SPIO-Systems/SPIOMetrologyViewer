@@ -8,7 +8,7 @@ import yaml
 
 from . import io, tuning, workspace
 
-ROOT = workspace.ROOT
+ROOT = workspace.PROJECT
 DEFAULT_POSITIONS = workspace.file("DevicePositionMap.xlsx")
 DEFAULT_TOLERANCES = ROOT / "tolerances.yaml"
 

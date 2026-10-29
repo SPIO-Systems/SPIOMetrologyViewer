@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from PIL import Image, ImageTk
 
-from . import io, report, tuning, wafer, workspace
+from . import io, pipeline, report, tuning, wafer, workspace
 from .gui import PANEL_WIDTH, ImageView, ScrollFrame, loading, ready, status
 
 COLORS = {"pass": "#43a047", "warn": "#fbc02d", "fail": "#e53935", "nodata": "#bdbdbd"}
@@ -654,6 +654,14 @@ class WaferMapTab(ttk.Frame):
         self._build_metric_rows()
         self._refresh_map()
 
+    def load_raw(self, path):
+        """The raw image as the analysis saw it (binned like a P2 LEXT scan), so object positions fit."""
+        try:
+            cfg = self.measurement.load_config() if self.measurement else None
+        except Exception:
+            cfg = None
+        return pipeline.initial_state(path, cfg)["raw"]
+
     def raw_image_path(self, row):
         p = row.get("image_path")
         if isinstance(p, str) and workspace.resolve(p).exists():
@@ -813,7 +821,7 @@ class DeviceWindow(tk.Toplevel):
                 return None
         if img is None:
             path = self.tab.raw_image_path(self.row)
-            img = io.load_image(path) if path else None
+            img = self.tab.load_raw(path) if path else None
         return img
 
     def _show_image(self):

@@ -1,0 +1,6 @@
+# A plate without measurement types (see project.yaml plates): its images can be browsed, no analysis.
+analysis: "none"
+
+input:
+  image_glob: null                   # any image (.tif, .jpg, .png, .lext); set a pattern once the layout is settled
+  min_images: 1

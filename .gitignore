@@ -18,3 +18,5 @@ __pycache__/
 /measurements.yaml
 /*.xlsx
 RUNNING.txt
+/projects.yaml
+/project.yaml

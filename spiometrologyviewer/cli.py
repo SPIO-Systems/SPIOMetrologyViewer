@@ -1,10 +1,14 @@
 """Analyse a folder of mirror images, or a folder of wafer folders.
 
-    python -m spiometrologyviewer.cli --measurement "P2/With mirror"   # a measurement type from measurements.yaml
+    python -m spiometrologyviewer.cli --measurement "P2/With mirror"   # a measurement type of the current project
     python -m spiometrologyviewer.cli --all                            # every measurement type in it
-    python -m spiometrologyviewer.cli Images/P2/WithMirror/17013_2_P2_05 --out output/17013_2_P2_05
+    python -m spiometrologyviewer.cli --project 17013_2 --all          # of another project (see projects.yaml)
+    python -m spiometrologyviewer.cli some/wafer/folder --out output/some_wafer
 """
 import argparse
+import os
+import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -132,6 +136,8 @@ def run_measurement(m, crops=True, skip_done=False, progress=print):
         raise RuntimeError(f"{m.key} is being run already ({busy}); delete {m.output / workspace.LOCK_NAME} "
                            "if that run has stopped")
     cfg = m.load_config()
+    if m.is_browse(cfg):
+        raise ValueError(f"{m.key} has no analysis (browse only)")
     name = tuning.register(cfg, tuning.tunings_dir(m.config), template=m.config)
     progress(f"Tuning: {name}")
     with workspace.Lock(m.output):
@@ -146,15 +152,26 @@ def run_measurement(m, crops=True, skip_done=False, progress=print):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("images", type=Path, nargs="?", help="a wafer folder, or a folder of wafer folders")
-    ap.add_argument("--measurement", help='a measurement type from measurements.yaml, e.g. "P2/With mirror"')
-    ap.add_argument("--all", action="store_true", help="every measurement type in measurements.yaml")
+    ap.add_argument("--project", help=f"a project of the workspace (default: this PC's current one, "
+                                      f"{workspace.PROJECT_NAME})")
+    ap.add_argument("--measurement", help='a measurement type of the project, e.g. "P2/With mirror"')
+    ap.add_argument("--all", action="store_true", help="every measurement type of the project")
     ap.add_argument("--out", type=Path, default=Path("output"))
     ap.add_argument("--config", type=Path, default=io.DEFAULT_CONFIG)
     ap.add_argument("--no-crops", action="store_true")
     ap.add_argument("--skip-done", action="store_true", help="skip wafers whose results.csv already exists")
     args = ap.parse_args(argv)
+    if args.project and args.project != workspace.PROJECT_NAME:
+        # the project is read at import: run again with it
+        if args.project not in workspace.projects():
+            ap.error(f"no project {args.project!r} in {workspace.ROOT / workspace.PROJECTS_NAME}")
+        rest = list(sys.argv[1:] if argv is None else argv)
+        i = next(k for k, a in enumerate(rest) if a.startswith("--project"))
+        del rest[i:i + (1 if "=" in rest[i] else 2)]
+        sys.exit(subprocess.call([sys.executable, "-m", "spiometrologyviewer.cli", *rest], cwd=workspace.REPO,
+                                 env={**os.environ, workspace.PROJECT_ENV: args.project}))
     if args.all or args.measurement:
-        todo = ([m for ms in measurements.load().values() for m in ms] if args.all
+        todo = ([m for ms in measurements.load().values() for m in ms if not m.is_browse()] if args.all
                 else [measurements.find(args.measurement)])
         for m in todo:
             print(f"##### {m.key} -> {m.output}")
