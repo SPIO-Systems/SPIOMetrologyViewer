@@ -1,0 +1,1 @@
+Overlay active area on mirrors and lenses, and update ROI for these. Possibly include areas outside of ROI to track dirt and scratches. 
