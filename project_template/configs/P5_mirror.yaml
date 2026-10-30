@@ -1,0 +1,49 @@
+# P5 mirror: size of the mirror and quality of its surface (one stitched colour image per device, 5X).
+
+# Pixel scale of the 5X objective.
+um_per_px: 2.5
+
+# Analysis type (see spiometrologyviewer/analyses.py)
+analysis: "p5_mirror"
+
+input:
+  image_glob: "*_C.tif"       # one colour image per device, in timestamped subfolders
+  min_images: 10
+
+mirror:
+  size_um: [2597, 2600]   # nominal width, length (project.yaml `p5_mirror` overrides this)
+  min_contrast: 60        # less than this between mirror and background: not found
+  inside_percentile: 99.5
+  corner_px: 12           # points this close to the corners don't count for the fit
+  search_out_px: 16       # how far outside the side an edge is looked for
+  search_in_px: 16        # ... and inside
+  inset_px: 4             # the levels on both sides are taken from this far from the side ...
+  plateau_px: 8           # ... over this many px
+  level_lines: 51         # and smoothed along the side over this many lines, so a defect doesn't move them
+  clip_sigma: 3           # points further than this many sigma from the line are left out of the fit
+  defect_um: 7.5          # an edge further than this from its fitted line is a defect ...
+  defect_min_um: 12.5     # ... when it does so over at least this length
+  border_ignore_um: 12.5  # rim along the mirror edge, never counted as dirt
+
+edge_band_um: 100         # outer strip of the mirror reported separately from the inner area
+
+illumination:
+  closing_um: 400         # features narrower than this are removed from the background estimate
+  blur_um: 50
+
+saturation_level: 250     # red and green at or above this count as clipped
+
+dark:
+  t_ratio: 0.9            # pixel is "dark" if blue / background < this ...
+  t_ratio_low: 0.96       # ... and grown into touching pixels below this
+  min_area_px: 3
+
+classify:
+  stain_min_diam_um: 40   # objects at least this wide ...
+  stain_min_ratio: 0.8    # ... and on average paler than this are stains
+  large_min_diam_um: 40   # the others at least this wide (equivalent diameter) ...
+  large_min_length_um: 100  # ... or this long are large defects, the rest are particles
+
+output:
+  crop_px: 96
+  thumb_px: 256           # size of the device thumbnails on the wafer map

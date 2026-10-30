@@ -1,4 +1,4 @@
-# P1: no analysis yet. The images can be browsed in the GUI (no pipeline, tolerances or batch run).
+# P1 Nanolab: images without a fixed layout. They can be browsed in the GUI (no pipeline, tolerances or batch run).
 analysis: "none"
 
 input:

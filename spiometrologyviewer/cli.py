@@ -22,6 +22,7 @@ FEATURE_COLUMNS = [
     "mean_ratio", "min_ratio", "rel_r", "rel_g", "rel_b", "bright_frac",
     "edge_dist_um", "in_inner", "saturated_frac", "chip_depth_um",
     "height_nm",   # P4 3D profile: bump height / pit depth
+    "side",        # P1, P5: side of an edge defect
 ]
 
 
@@ -36,13 +37,19 @@ def _thumb(bgr, size):
     return cv2.resize(bgr, (round(w * f), round(h * f)), interpolation=cv2.INTER_AREA)
 
 
-def run_batch(images, out, cfg, crops=True, progress=print, tuning_name=None, template=io.DEFAULT_CONFIG):
+def _list(folder, pattern, recursive):
+    return (io.list_images_below if recursive else io.list_images)(folder, pattern)
+
+
+def run_batch(images, out, cfg, crops=True, progress=print, tuning_name=None, template=io.DEFAULT_CONFIG,
+              recursive=False):
     """Analyse every image in `images`, writing results/objects CSVs, overlays, thumbnails and
     crops to `out`.
 
     The parameters used are saved next to the results as config_used.yaml, and `tuning_name`
     (see tuning.register) goes into results.csv as the `tuning` column, the code version as
-    `code_version`. Image paths are stored relative to the workspace (see workspace.relative)."""
+    `code_version`. Image paths are stored relative to the workspace (see workspace.relative).
+    `recursive`: the images may lie in subfolders of `images` (P5)."""
     out = Path(out)
     for sub in ("overlays", "thumbs", "thumbs_result", "plots"):
         (out / sub).mkdir(parents=True, exist_ok=True)
@@ -50,7 +57,7 @@ def run_batch(images, out, cfg, crops=True, progress=print, tuning_name=None, te
         (out / "crops").mkdir(exist_ok=True)
     thumb_px = cfg["output"].get("thumb_px", 256)
 
-    paths = io.list_images(images, _input(cfg)[0])
+    paths = _list(images, _input(cfg)[0], recursive)
     results, objects = [], []
     for n, path in enumerate(paths, start=1):
         a, m = pipeline.analyse(path, cfg)
@@ -82,6 +89,7 @@ def run_batch(images, out, cfg, crops=True, progress=print, tuning_name=None, te
         progress(f"[{n}/{len(paths)}] {a.name}: "
                  + (f"dirt {dirt:.2f}%  " if dirt is not None else "")
                  + (f"R {m['roc_um'] / 1000:.4f} mm  " if "roc_um" in m else "")
+                 + (f"{m['width_um']:.1f} x {m['length_um']:.1f} um  " if "length_um" in m else "")
                  + " ".join(f"{c}={k}" for c, k in sorted(counts.items()))
                  + (f"  offset x {m['offset_x_um']:+.1f} y {m['offset_y_um']:+.1f} um" if "offset_x_um" in m else ""))
 
@@ -95,7 +103,7 @@ def run_batch(images, out, cfg, crops=True, progress=print, tuning_name=None, te
 
 
 def run_wafers(root, out, cfg, crops=True, skip_done=False, progress=print, wafers=None, tuning_name=None,
-               template=io.DEFAULT_CONFIG):
+               template=io.DEFAULT_CONFIG, recursive=False):
     """Run the batch on every wafer folder under `root` (see io.find_wafers), or on `wafers`
     ({name: image folder}) if given, each into out/<wafer name>/. If `root` itself holds the
     images, its results go straight into `out`.
@@ -106,7 +114,7 @@ def run_wafers(root, out, cfg, crops=True, skip_done=False, progress=print, wafe
     if wafers is None:
         wafers = io.find_wafers(root, pattern, min_images)
         if list(wafers.values()) == [Path(root)]:
-            run_batch(root, out, cfg, crops, progress, tuning_name, template)
+            run_batch(root, out, cfg, crops, progress, tuning_name, template, recursive)
             return {Path(root).name: out}
     if not wafers:
         raise FileNotFoundError(f"No folder under {root} holds {min_images} or more {pattern or 'images'}")
@@ -114,13 +122,13 @@ def run_wafers(root, out, cfg, crops=True, skip_done=False, progress=print, wafe
     done, rows = {}, []
     for n, (name, folder) in enumerate(wafers.items(), start=1):
         dest = out / name
-        rows.append({"wafer": name, "folder": workspace.relative(folder), "images": len(io.list_images(folder, pattern))})
+        rows.append({"wafer": name, "folder": workspace.relative(folder), "images": len(_list(folder, pattern, recursive))})
         if skip_done and (dest / "results.csv").exists():
             progress(f"=== Wafer {n}/{len(wafers)} {name}: already done, skipped")
         else:
             progress(f"=== Wafer {n}/{len(wafers)} {name} ({folder})")
             t = time.time()
-            run_batch(folder, dest, cfg, crops, lambda msg: progress(f"{name} {msg}"), tuning_name, template)
+            run_batch(folder, dest, cfg, crops, lambda msg: progress(f"{name} {msg}"), tuning_name, template, recursive)
             progress(f"=== {name} took {time.time() - t:.0f} s")
         done[name] = dest
     out.mkdir(parents=True, exist_ok=True)
@@ -142,7 +150,7 @@ def run_measurement(m, crops=True, skip_done=False, progress=print):
     progress(f"Tuning: {name}")
     with workspace.Lock(m.output):
         done = run_wafers(m.images, m.output, cfg, crops, skip_done, progress, wafers=m.wafers(cfg),
-                          tuning_name=name, template=m.config)
+                          tuning_name=name, template=m.config, recursive=m.recursive)
     new = inventory.sync()
     if new:
         progress(f"New in the inventory: {', '.join(new)}")

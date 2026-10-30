@@ -109,7 +109,9 @@ folder. For 17013_2:
 
 | Plate | Type | Images | Analysed |
 |---|---|---|---|
-| P1 | Browse | `P1/<wafer>/` (any image, also in subfolders) | nothing yet: the images can be browsed |
+| P1 | Aperture | `P1/<wafer>/Aperture/*COLOR2D.tif` | width, length and edges of the opening; dirt on the coating around it |
+| P1 | Slit | `P1/<wafer>/Slit/*COLOR2D.tif` | the same at higher magnification |
+| P1 | Nanolab | `P1/<wafer>/Nanolab/` (any image, also in subfolders) | nothing: the images can be browsed |
 | P2 | Without mirror | `P2/<wafer>/*COLOR2D.tif` | the lens surface (no mirror, so no offset, rotation or edge chips) |
 | P2 | With mirror | `P2/<wafer>/coated/*_G001.lext` (or `coating/`) | the mirror rectangle, plus its offset to the lens, on the LEXT laser intensity |
 | P2 | With mirror (legacy) | `P2/<wafer>/*COLOR2D.tif` of the legacy wafers | as With mirror, with the COLOR2D parameters |
@@ -117,7 +119,7 @@ folder. For 17013_2:
 | P3 | Grating | `P3/<wafer>/Grading/` | particles, streaks (comets) and discoloured spots on the grating |
 | P3 | Mirror | `P3/<wafer>/Mirror/` | small particles and large defects on the cream mirror (gold strip ignored) |
 | P4 | 3D profile | `P4/<wafer>/*_P4_*.lext` | lens shape from LEXT 3D scans: radius of curvature, residual to the sphere, Zernike terms, stitching, bumps and pits |
-| P5 | Browse | `P5/<wafer>/<timestamp>/*_C.tif` | nothing yet: the images can be browsed |
+| P5 | Mirror | `P5/<wafer>/<timestamp>/*_C.tif` | width and length of the mirror; particles, large defects and stains on it |
 
 A plate in `project.yaml` without measurement types gets a Browse tab by itself (`analysis: none`).
 
@@ -128,7 +130,8 @@ They can be browsed there, but batch runs skip them, except in a type with `lega
 (P2 With mirror (legacy)), which analyses only them. Such a type is hidden when the project has no
 legacy wafers for its plate.
 
-**Design values** in `project.yaml` (`lens.nominal_roc_um`, `mirror.size_um`) replace those in the
+**Design values** in `project.yaml` (`lens.nominal_roc_um`, `mirror.size_um`, `aperture.size_um`,
+`slit.size_um`, `p5_mirror.size_um`) replace those in the
 configs of the analyses that use them. The tuning tab shows them locked.
 
 Per type:
@@ -183,7 +186,7 @@ One tab per plate; inside it, one tab per measurement type; inside that:
 - **Step-by-step tuning**: the pipeline on one image, with that type's parameters. It is only
   loaded when you first open it. Its wafer box lists every wafer with images, legacy ones too.
 
-Types without an analysis (P1, P5) have one **Browse** tab instead: pick a wafer and step through its
+Types without an analysis (P1 Nanolab) have one **Browse** tab instead: pick a wafer and step through its
 images.
 
 ## Step-by-step tuning
@@ -451,6 +454,18 @@ the height map, the laser intensity and an invalid-pixel mask). Lengths are µm,
 
 The result image is the residual map (red above the sphere, blue below; scale in the text at the
 bottom left) with bumps outlined black and pits white.
+
+### P1 aperture and slit, P5 mirror
+
+The rectangle is found anywhere in the image and each side is followed line by line: the edge is where
+the signal is halfway between the levels just outside and just inside. A straight line through those
+points gives the size (`width_um` along x, `length_um` along y, and their deviation from the design
+value). The scatter around the line is the edge roughness (`edge_rms_um`, without defects), and a stretch
+further from the line than `defect_um` is an `edge_defect`.
+
+The burned-in grid hides the pixels under it. A side under a grid line is bridged and flagged
+(`edge_hidden`, up to about 1 px off). On P5 the red and green channels are clipped on the mirror
+(`clipped_pct`), so its surface is judged on blue only.
 
 ## Known limits
 

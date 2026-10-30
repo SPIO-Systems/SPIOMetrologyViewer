@@ -1,6 +1,0 @@
-# P5: no analysis yet. The images can be browsed in the GUI (no pipeline, tolerances or batch run).
-analysis: "none"
-
-input:
-  image_glob: "*_C.tif"             # one colour image per device, in timestamped subfolders
-  min_images: 10

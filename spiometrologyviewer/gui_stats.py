@@ -48,8 +48,10 @@ class StatsPanel(ttk.Frame):
         self.df = None
         self.checks = {}      # wafer name -> BooleanVar
         self.colors = {}      # wafer name -> plot colour
-        self.view = tk.StringVar(value=VIEWS[0])
-        self.x_var = tk.StringVar(value=wafer.OVERALL)
+        # a value to look at first (P4: fitted R) has no pass / fail of its own, so its view is the curves
+        lead = next((m.label for m in tab.metrics if m.follows), None)
+        self.view = tk.StringVar(value=VIEWS[1] if lead else VIEWS[0])
+        self.x_var = tk.StringVar(value=lead or wafer.OVERALL)
         self.y_var = tk.StringVar()
         self.map_stat = tk.StringVar(value="mean")
         self.log_x = tk.BooleanVar(value=False)

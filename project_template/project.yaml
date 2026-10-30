@@ -14,6 +14,12 @@ lens:
   nominal_roc_um: 16198          # design radius of curvature of the lenses (P4 3D profile)
 mirror:
   size_um: [1213, 1630]          # mirror width, height (P2 with mirror)
+aperture:
+  size_um: [197, 671]            # aperture width, length (P1 aperture)
+slit:
+  size_um: [25.9, 500]           # slit width, length (P1 slit)
+p5_mirror:
+  size_um: [2597, 2600]          # mirror width, length (P5 mirror)
 
 # Wafers scanned before the current folder layout, per plate, e.g. P2: [17013_2_P2_05, ...]. They are
 # listed and can be browsed, but only measurement types with `legacy: only` analyse them.

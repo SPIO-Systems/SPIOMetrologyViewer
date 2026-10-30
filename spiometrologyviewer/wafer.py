@@ -18,7 +18,12 @@ SEVERITY = {"nodata": 0, "pass": 1, "warn": 2, "fail": 3}
 @dataclass
 class Metric:
     """One results.csv column with its tolerances: pass if value <= pass_max, fail if > fail_min,
-    warn in between. With `abs`, |value| is compared (offsets, rotation)."""
+    warn in between. With `abs`, |value| is compared (offsets, rotation).
+
+    With `follows` (the column of another metric) it has no tolerances of its own: it is a value to
+    look at, listed first in the GUI, that takes its status from that metric and stays out of the
+    overall status (with enabled=False; see status_in) and the tolerance panel. `decimals`: digits shown, default 4
+    significant."""
     column: str
     label: str
     pass_max: float
@@ -26,6 +31,8 @@ class Metric:
     step: float = 1.0      # spin box increment in the GUI
     abs: bool = False
     enabled: bool = True
+    follows: str = None
+    decimals: int = None
 
     def values(self, df):
         v = pd.to_numeric(df[self.column], errors="coerce") if self.column in df else pd.Series(np.nan, df.index)
@@ -44,6 +51,11 @@ class Metric:
         if v <= self.pass_max:
             return "pass"
         return "fail" if v > self.fail_min else "warn"
+
+    def status_in(self, row, metrics):
+        """Status of this metric for a results row, `metrics` being the whole list."""
+        source = next((m for m in metrics if m.column == self.follows), self) if self.follows else self
+        return source.status(source.value(row))
 
 
 DEFAULT_METRICS = [
@@ -152,6 +164,8 @@ def load_tolerances(path=DEFAULT_TOLERANCES, analysis="mirror"):
     by_col = {m.column: m for m in metrics}
     for col, vals in saved.items():
         m = by_col.get(col)
+        if m is not None and m.follows:
+            continue
         if m is None:  # a column added by hand in the file
             m = Metric(col, vals.get("label", col), 0, 0, abs=bool(vals.get("abs", False)))
             metrics.append(m)
@@ -173,7 +187,7 @@ _HEADER = """\
 
 def save_tolerances(metrics, path=DEFAULT_TOLERANCES):
     lines = [_HEADER]
-    for m in metrics:
+    for m in (x for x in metrics if not x.follows):
         lines.append(f"{m.column}:  # {m.label}")
         lines.append(f"  pass_max: {m.pass_max}")
         lines.append(f"  fail_min: {m.fail_min}")
@@ -215,8 +229,9 @@ class Param:
 
 def parameters(df, metrics, with_overall=False):
     """The tolerance metrics first (by label), then every other numeric results column."""
-    params = [Param(OVERALL)] if with_overall else []
-    params += [Param(m.label, m.column, m) for m in metrics]
+    params = [Param(m.label, m.column) for m in metrics if m.follows]
+    params += [Param(OVERALL)] if with_overall else []
+    params += [Param(m.label, m.column, m) for m in metrics if not m.follows]
     # abs metrics (offsets, rotation) also with their sign, e.g. for an offset x vs offset y plot
     params += [Param(f"{m.column} (signed)", m.column) for m in metrics if m.abs and m.column in df]
     used = {m.column for m in metrics}

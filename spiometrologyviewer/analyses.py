@@ -8,13 +8,18 @@ The config key `analysis` picks one; P2 configs without it fall back to `region`
     grating     P3 grating: particles, streaks and discoloured spots
     alignment   P3 alignment marks: dark-line pattern offset vs the bright-line pattern, and dirt
     lens3d      P4 3D profile: lens shape from LEXT 3D scans (radius of curvature, residual, defects)
-    none        no analysis: the images can only be browsed (plates not implemented yet: P1, P5)
+    p1_aperture P1 aperture: size and edges of the opening, dirt on the coating around it
+    p1_slit     P1 slit: the same at higher magnification
+    p5_mirror   P5 mirror: size of the mirror, dirt and stains on it
+    none        no analysis: the images can only be browsed
 
-Each of the P3 / P4 modules defines STEPS (pipeline), step_ui() (tuning GUI) and METRICS (tolerances).
+Each of the P1 / P3 / P4 / P5 modules defines STEPS (pipeline), step_ui() (tuning GUI) and METRICS (tolerances; per analysis
+type if a module serves several).
 """
 import importlib
 
-MODULES = {"p3_mirror": "p3mirror", "grating": "grating", "alignment": "alignment", "lens3d": "lens3d"}
+MODULES = {"p3_mirror": "p3mirror", "grating": "grating", "alignment": "alignment", "lens3d": "lens3d",
+           "p1_aperture": "p1opening", "p1_slit": "p1opening", "p5_mirror": "p5mirror"}
 NAMES = ["mirror", "lens", *MODULES, "none"]
 
 
@@ -54,4 +59,7 @@ def step_ui(cfg):
 
 
 def default_metrics(name):
-    return [] if name == "none" else _module(name).METRICS
+    if name == "none":
+        return []
+    metrics = _module(name).METRICS
+    return metrics[name] if isinstance(metrics, dict) else metrics

@@ -1,1 +1,18 @@
+General:
 Overlay active area on mirrors and lenses, and update ROI for these. Possibly include areas outside of ROI to track dirt and scratches. 
+Implement SPIO logo for program icon
+
+P1:
+
+P2:
+
+P3:
+
+P4:
+
+P5:
+Lower the exposure in the recipe: red and green are clipped on the mirror, so only blue shows the surface
+
+Inventory:
+Before being able to release a plate for stacking, it needs to have all measurements present
+When pairing plates for compatibility, limit comparison to plates that are supposed to be stacked. P1 with P2, P3 with P4, P1-2 substack with P3-4 substack, and P1-2-3-4 substack with P5

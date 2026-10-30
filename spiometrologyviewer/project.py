@@ -4,7 +4,7 @@
     measurements   the metrology folder (one subfolder per plate), relative to the project folder
     plates         plate tabs in order; a plate without measurement types gets a Browse tab
     wafer          units per wafer and the device position map
-    lens, mirror   design values, filled into the configs of the analyses that use them (DESIGN)
+    lens, mirror, aperture, slit, p5_mirror   design values, filled into the configs of the analyses that use them (DESIGN)
     legacy         per plate, wafers scanned before the current folder layout (see measurements.py)
 
 A project folder without project.yaml (a workspace from before projects) is read with defaults: the
@@ -25,6 +25,9 @@ FILE = "project.yaml"
 DESIGN = {
     ("lens", "nominal_roc_um"): {"lens3d": ("nominal_roc_um",)},
     ("mirror", "size_um"): {"mirror": ("mirror", "size_um")},
+    ("aperture", "size_um"): {"p1_aperture": ("opening", "size_um")},
+    ("slit", "size_um"): {"p1_slit": ("opening", "size_um")},
+    ("p5_mirror", "size_um"): {"p5_mirror": ("mirror", "size_um")},
 }
 
 
@@ -94,9 +97,10 @@ def save_design(folder, description="", plates=None, units=None, design=None):
     p = Path(folder) / FILE
     lines = p.read_text(encoding="utf-8").splitlines()
 
-    def put(prefix, value):
+    def put(prefix, value, section=None):
+        start = lines.index(f"{section}:") if section else 0   # keys like size_um are in several sections
         for i, line in enumerate(lines):
-            if line.startswith(prefix):
+            if i >= start and line.startswith(prefix):
                 comment = line[line.index("#"):] if "#" in line else ""
                 lines[i] = f"{prefix} {value}".ljust(33) + comment if comment else f"{prefix} {value}"
                 return
@@ -108,6 +112,6 @@ def save_design(folder, description="", plates=None, units=None, design=None):
         put("  units:", units)
     for (section, key), _ in DESIGN.items():
         value = (design or {}).get(section, {}).get(key)
-        if value is not None:
-            put(f"  {key}:", _inline(value, default_flow_style=True))
+        if value is not None and f"{section}:" in lines:
+            put(f"  {key}:", _inline(value, default_flow_style=True), section)
     p.write_text("\n".join(lines) + "\n", encoding="utf-8")

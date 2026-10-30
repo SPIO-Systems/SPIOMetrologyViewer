@@ -16,11 +16,21 @@
 # config, tolerances, output and positions are relative to this file.
 
 P1:
-  Browse:       # not analysed yet
-    images: P1/*
+  Aperture:     # LEXT recipe: size and edges of the aperture, dirt on the coating
+    images: P1/*/Aperture
+    config: configs/P1_aperture.yaml
+    tolerances: tolerances/P1_aperture.yaml
+    output: output/P1/Aperture
+  Slit:         # LEXT recipe: size and edges of the slit, dirt on the coating
+    images: P1/*/Slit
+    config: configs/P1_slit.yaml
+    tolerances: tolerances/P1_slit.yaml
+    output: output/P1/Slit
+  Nanolab:      # images without a fixed layout: browse only
+    images: P1/*/Nanolab
     config: configs/P1_browse.yaml
     tolerances: tolerances/P1_browse.yaml
-    output: output/P1/Browse
+    output: output/P1/Nanolab
     recursive: true
 
 P2:
@@ -67,9 +77,9 @@ P4:
     output: output/P4/3D
 
 P5:
-  Browse:       # not analysed yet; one image per timestamped subfolder of the wafer folder
+  Mirror:       # one image per timestamped subfolder of the wafer folder
     images: P5/*
-    config: configs/P5_browse.yaml
-    tolerances: tolerances/P5_browse.yaml
-    output: output/P5/Browse
+    config: configs/P5_mirror.yaml
+    tolerances: tolerances/P5_mirror.yaml
+    output: output/P5/Mirror
     recursive: true

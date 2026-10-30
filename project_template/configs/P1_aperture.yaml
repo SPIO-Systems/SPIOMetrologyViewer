@@ -1,0 +1,52 @@
+# P1 aperture: size and edges of the opening in the coating, and dirt on the coating (LEXT recipe, 5X).
+
+# Pixel scale of the 5X objective (in the .poir files of the recipe).
+um_per_px: 2.5
+
+# Analysis type (see spiometrologyviewer/analyses.py)
+analysis: "p1_aperture"
+
+input:
+  image_glob: "*COLOR2D.tif"  # batch runs only analyse these files
+  min_images: 10              # a folder holding at least this many of them directly is one wafer
+
+overlay:
+  color_margin: 40        # how much greener / yellower than the other channels a grid pixel is
+  dilate_px: 1
+
+opening:
+  signal: red_minus_blue  # the opening is pale pink on the blue coating
+  size_um: [197, 671]     # nominal width, length (project.yaml `aperture` overrides this)
+  min_contrast: 30        # less than this between opening and coating: not found
+  inside_percentile: 99.5 # share of the image that is surely not opening (the opening covers about 2%)
+  corner_px: 12           # points this close to the corners don't count for the fit
+  search_out_px: 16       # how far outside the side an edge is looked for
+  search_in_px: 16        # ... and inside
+  inset_px: 4             # the levels on both sides are taken from this far from the side ...
+  plateau_px: 8           # ... over this many px
+  level_lines: 51         # and smoothed along the side over this many lines, so a defect doesn't move them
+  clip_sigma: 3           # points further than this many sigma from the line are left out of the fit
+  defect_um: 4            # an edge further than this from its fitted line is a defect ...
+  defect_min_um: 7.5      # ... when it does so over at least this length
+
+coating:
+  rim_um: 12.5            # strip along the opening, never counted as dirt
+  edge_band_um: 100       # coating this close to the opening is reported separately
+
+illumination:
+  closing_um: 100         # dark features narrower than this are removed from the background estimate
+  blur_um: 25
+
+dark:
+  t_ratio: 0.85           # pixel is "dark" if intensity / background < this ...
+  t_ratio_low: 0.93       # ... and grown into touching pixels below this
+  t_bright: 1.15          # pixel is "bright" if intensity / background > this
+  min_area_px: 3
+
+classify:
+  large_min_diam_um: 30   # objects at least this wide (equivalent diameter) ...
+  large_min_length_um: 75 # ... or this long are large defects, the rest are particles
+
+output:
+  crop_px: 96
+  thumb_px: 256           # size of the device thumbnails on the wafer map

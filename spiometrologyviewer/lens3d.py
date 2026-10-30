@@ -25,7 +25,7 @@ from matplotlib.figure import Figure
 from scipy import ndimage, optimize
 from skimage import measure, morphology
 
-from . import gui_steps, io
+from . import gui_steps, io, report
 from .grating import region
 from .gui_steps import P, StepUI, outline, tint
 from .pipeline import Analysis
@@ -470,8 +470,7 @@ def build_analysis(s, cfg):
                  f"stitching {m['stitch_rms_nm']:.0f} nm rms"]
         y = bgr.shape[0] - 12 - 22 * (len(lines) - 1)
         for t in lines:
-            cv2.putText(bgr, t, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 3, cv2.LINE_AA)
-            cv2.putText(bgr, t, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
+            report.outlined_text(bgr, t, (10, y))
             y += 22
 
     a.annotate = annotate
@@ -505,7 +504,7 @@ def image_metrics(s, cfg):
         "aperture_um": 2 * s["aperture"],
         "valid_pct": 100.0 * s["fit_area"].sum() / max(1, (radius_map(s, *s["rim_centre"]) < s["aperture"]).sum())
         if np.isfinite(s["aperture"]) else np.nan,
-        "roc_um": R, "roc_dev_pct": 100.0 * (R - nominal) / nominal,
+        "roc_mm": R / 1000, "roc_um": R, "roc_dev_pct": 100.0 * (R - nominal) / nominal,
         **curve,
         "roc_spread_pct": 100.0 * (max(spread) - min(spread)) / nominal if spread else np.nan,
         "conic_roc_um": s["conic"][0], "conic_k": s["conic"][1],
@@ -543,6 +542,7 @@ STEPS = [
 ]
 
 METRICS = [
+    Metric("roc_mm", "Fitted R [mm]", 0, 0, 0.001, enabled=False, follows="roc_dev_pct", decimals=4),
     Metric("roc_dev_pct", "|R deviation from nominal| [%]", 0.5, 1.0, 0.05, abs=True),
     Metric("roc_spread_pct", "R spread over aperture [%]", 0.5, 1.0, 0.05),
     Metric("residual_rms_nm", "Residual to sphere rms [nm]", 300, 500, 10),

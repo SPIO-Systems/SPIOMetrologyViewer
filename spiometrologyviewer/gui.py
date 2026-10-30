@@ -554,7 +554,7 @@ class App:
         def run(progress):
             with workspace.Lock(m.output):
                 cli.run_wafers(m.images, m.output, cfg, skip_done=skip, progress=progress, wafers=wafers,
-                               tuning_name=name, template=self.config_path)
+                               tuning_name=name, template=self.config_path, recursive=m.recursive)
 
         self._start_batch(run, m.output)
 
@@ -838,6 +838,9 @@ def new_project(root):
         "units": ("Units (devices) per wafer", str(tpl.units or "")),
         "roc": ("Lens: nominal radius of curvature [um]", str(tpl.design["lens"].get("nominal_roc_um", ""))),
         "mirror": ("Mirror: width, height [um]", ", ".join(str(v) for v in tpl.design["mirror"].get("size_um", []))),
+        "aperture": ("P1 aperture: width, length [um]", ", ".join(str(v) for v in tpl.design["aperture"].get("size_um", []))),
+        "slit": ("P1 slit: width, length [um]", ", ".join(str(v) for v in tpl.design["slit"].get("size_um", []))),
+        "p5_mirror": ("P5 mirror: width, length [um]", ", ".join(str(v) for v in tpl.design["p5_mirror"].get("size_um", []))),
     }
     vars_ = {}
     for i, (key, (label, value)) in enumerate(fields.items()):
@@ -868,14 +871,14 @@ def new_project(root):
                     return
             else:
                 units = vars_["units"].get().strip()
-                mirror = [float(v) for v in vars_["mirror"].get().replace(",", " ").split()]
+                size = lambda key: [float(v) for v in vars_[key].get().replace(",", " ").split()] or None
                 roc = vars_["roc"].get().strip()
                 workspace.create_project(folder, name, metrology)
                 project.save_design(folder, vars_["description"].get().strip(),
                                     [p.strip() for p in vars_["plates"].get().split(",") if p.strip()],
                                     int(units) if units else None,
                                     {"lens": {"nominal_roc_um": float(roc) if roc else None},
-                                     "mirror": {"size_um": mirror or None}})
+                                     **{k: {"size_um": size(k)} for k in ("mirror", "aperture", "slit", "p5_mirror")}})
             workspace.register_project(name, folder)
             workspace.save_settings(project=name)
         except (OSError, ValueError) as e:

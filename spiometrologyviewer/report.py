@@ -17,12 +17,22 @@ CLASS_COLORS = {
     # P4 3D profile
     "bump": (0, 0, 0),
     "pit": (255, 255, 255),
+    # P1, P5
+    "edge_defect": (0, 100, 255),
 }
 
 
 def _outline(img, mask, color, thickness=1):
     contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     cv2.drawContours(img, contours, -1, color, thickness)
+
+
+def outlined_text(img, text, org, scale=0.55):
+    """White text with a black outline. The outline is the thin text drawn around it, not thick text
+    below it: in OpenCV 5 thickness changes the letter spacing, so the two would drift apart."""
+    for dx, dy in ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)):
+        cv2.putText(img, text, (org[0] + dx, org[1] + dy), cv2.FONT_HERSHEY_SIMPLEX, scale, (0, 0, 0), 1, cv2.LINE_AA)
+    cv2.putText(img, text, org, cv2.FONT_HERSHEY_SIMPLEX, scale, (255, 255, 255), 1, cv2.LINE_AA)
 
 
 def draw_overlay(a):

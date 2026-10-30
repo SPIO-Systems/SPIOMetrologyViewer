@@ -75,6 +75,12 @@ def _make_thumb(out_dir, row, kind, raw_path, size=256):
     return im
 
 
+def fmt_metric(m, row):
+    """The value of metric `m` in `row` as text."""
+    v = row.get(m.column, np.nan)
+    return f"{v:.{m.decimals}f}" if m.decimals is not None and not _isnan(v) else fmt(v)
+
+
 class MetricRow(ttk.Frame):
     """Enable box, dataset statistics, pass / fail cutoffs and per-colour counts for one metric."""
 
@@ -157,7 +163,7 @@ class WaferMapTab(ttk.Frame):
         self.open_in_tuning = None   # set by the measurement tab: fn(image path)
         self.on_show = None          # set by the measurement tab: brings this tab to the front
         self.wafer_var = tk.StringVar()
-        self.color_by = tk.StringVar(value=OVERALL)
+        self.color_by = tk.StringVar(value=next((m.label for m in self.metrics if m.follows), OVERALL))
         self.flip_y = tk.BooleanVar(value=False)
         self.thumb_kind = tk.StringVar(value="Raw")
         self.metric_rows = []
@@ -263,11 +269,12 @@ class WaferMapTab(ttk.Frame):
     def _build_metric_rows(self):
         self.tol.clear()
         self.metric_rows = []
-        for m in self.metrics:
+        for m in (x for x in self.metrics if not x.follows):
             row = MetricRow(self.tol.inner, m, self._refresh_map, self.pw - 110)
             row.pack(fill="x", padx=(0, 6))
             self.metric_rows.append(row)
-        labels = [OVERALL] + [m.label for m in self.metrics]
+        labels = ([m.label for m in self.metrics if m.follows] + [OVERALL]
+                  + [m.label for m in self.metrics if not m.follows])
         self.color_box.configure(values=labels)
         if self.color_by.get() not in labels:
             self.color_by.set(OVERALL)
@@ -350,7 +357,7 @@ class WaferMapTab(ttk.Frame):
 
     def status_of(self, row):
         m = self._metric(self.color_by.get())
-        return wafer.overall(row, self.metrics) if m is None else m.status(m.value(row))
+        return wafer.overall(row, self.metrics) if m is None else m.status_in(row, self.metrics)
 
     def _records(self):
         if self.devices is None:
@@ -441,7 +448,7 @@ class WaferMapTab(ttk.Frame):
                 sub = "no data" if st == "nodata" else (" ".join(
                     x for x in (f"{nf} fail" if nf else "", f"{nw} warn" if nw else "") if x) or "OK")
             else:
-                sub = fmt(r.get(metric.column, np.nan))
+                sub = fmt_metric(metric, r)
             x0, y0, x1, y1 = gx - w, gy - h, gx + w, gy + h
             if selected:
                 c.create_rectangle(x0 - 4, y0 - 4, x1 + 4, y1 + 4, outline="#0d47a1", width=4, tags=(tag,))
@@ -569,10 +576,9 @@ class WaferMapTab(ttk.Frame):
         t.insert("end", f"Device {int(row['device'])}   {fmt(row.get('image'))}\n", "head")
         t.insert("end", f"Overall: {NAMES[st].upper()}\n", st)
         for m in self.metrics:
-            v = m.value(row)
-            s = m.status(v)
-            mark = "" if m.enabled else " (off)"
-            t.insert("end", f"{m.label[:22]:22s} {fmt(row.get(m.column, np.nan)):>7s} {NAMES[s]}{mark}\n", s)
+            s = m.status_in(row, self.metrics)
+            mark = "" if m.enabled or m.follows else " (off)"
+            t.insert("end", f"{m.label[:22]:22s} {fmt_metric(m, row):>7s} {NAMES[s]}{mark}\n", s)
         t.configure(state="disabled", height=min(16, len(self.metrics) + 3))
         self.open_btn.configure(state="normal" if not _isnan(row.get("image", np.nan)) else "disabled")
 
@@ -580,8 +586,8 @@ class WaferMapTab(ttk.Frame):
         self._hide_tip()
         lines = [f"Device {int(rec['device'])}   ({fmt(rec['x'])}, {fmt(rec['y'])})", fmt(rec.get("image"))]
         for m in self.metrics:
-            if m.enabled:
-                lines.append(f"{m.label}: {fmt(rec.get(m.column, np.nan))}  [{NAMES[m.status(m.value(rec))]}]")
+            if m.enabled or m.follows:
+                lines.append(f"{m.label}: {fmt_metric(m, rec)}  [{NAMES[m.status_in(rec, self.metrics)]}]")
         tip = tk.Toplevel(self)
         tip.wm_overrideredirect(True)
         tip.wm_geometry(f"+{e.x_root + 16}+{e.y_root + 12}")
@@ -738,9 +744,10 @@ class DeviceWindow(tk.Toplevel):
         st = wafer.overall(self.row, self.tab.metrics)
         tol = tree.insert("", "end", text="Tolerances", values=("", NAMES[st].upper()), open=True, tags=(st, "group"))
         for m in self.tab.metrics:
-            s = m.status(m.value(self.row))
-            tree.insert(tol, "end", text=m.label, values=(fmt(self.row.get(m.column, np.nan)),
-                                                         NAMES[s] + ("" if m.enabled else " (off)")), tags=(s,))
+            s = m.status_in(self.row, self.tab.metrics)
+            tree.insert(tol, "end", text=m.label, values=(fmt_metric(m, self.row),
+                                                         NAMES[s] + ("" if m.enabled or m.follows else " (off)")),
+                        tags=(s,))
         allv = tree.insert("", "end", text="All values", open=True, tags=("group",))
         for k, v in self.row.items():
             tree.insert(allv, "end", text=k, values=(fmt(v), ""))
