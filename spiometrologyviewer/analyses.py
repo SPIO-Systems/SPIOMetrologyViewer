@@ -11,6 +11,7 @@ The config key `analysis` picks one; P2 configs without it fall back to `region`
     p1_aperture P1 aperture: size and edges of the opening, dirt on the coating around it
     p1_slit     P1 slit: the same at higher magnification
     p5_mirror   P5 mirror: size of the mirror, dirt and stains on it
+    full_stack  Full stack layer thicknesses: every glass, glue and polymer layer from a LEXT cross-section
     none        no analysis: the images can only be browsed
 
 Each of the P1 / P3 / P4 / P5 modules defines STEPS (pipeline), step_ui() (tuning GUI) and METRICS (tolerances; per analysis
@@ -19,7 +20,8 @@ type if a module serves several).
 import importlib
 
 MODULES = {"p3_mirror": "p3mirror", "grating": "grating", "alignment": "alignment", "lens3d": "lens3d",
-           "p1_aperture": "p1opening", "p1_slit": "p1opening", "p5_mirror": "p5mirror"}
+           "p1_aperture": "p1opening", "p1_slit": "p1opening", "p5_mirror": "p5mirror",
+           "full_stack": "fullstack"}
 NAMES = ["mirror", "lens", *MODULES, "none"]
 
 

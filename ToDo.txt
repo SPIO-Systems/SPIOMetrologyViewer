@@ -13,6 +13,9 @@ P4:
 P5:
 Lower the exposure in the recipe: red and green are clipped on the mirror, so only blue shows the surface
 
+Full Stack:
+Set um_per_px (LEXT objective of the cross-sections) and the nominal layer thicknesses (project.yaml full_stack: nominal_um), then switch on the tolerances
+
 Inventory:
 Before being able to release a plate for stacking, it needs to have all measurements present
 When pairing plates for compatibility, limit comparison to plates that are supposed to be stacked. P1 with P2, P3 with P4, P1-2 substack with P3-4 substack, and P1-2-3-4 substack with P5

@@ -120,6 +120,7 @@ folder. For 17013_2:
 | P3 | Mirror | `P3/<wafer>/Mirror/` | small particles and large defects on the cream mirror (gold strip ignored) |
 | P4 | 3D profile | `P4/<wafer>/*_P4_*.lext` | lens shape from LEXT 3D scans: radius of curvature, residual to the sphere, Zernike terms, stitching, bumps and pits |
 | P5 | Mirror | `P5/<wafer>/<timestamp>/*_C.tif` | width and length of the mirror; particles, large defects and stains on it |
+| Full Stack | Layer thicknesses | `FullStacks/<stack>/ThicknessMeasurementsLext/*.tif*` | thickness of every glass, glue and polymer layer from a LEXT cross-section (one tall stitched image per device) |
 
 A plate in `project.yaml` without measurement types gets a Browse tab by itself (`analysis: none`).
 
@@ -131,7 +132,7 @@ They can be browsed there, but batch runs skip them, except in a type with `lega
 legacy wafers for its plate.
 
 **Design values** in `project.yaml` (`lens.nominal_roc_um`, `mirror.size_um`, `aperture.size_um`,
-`slit.size_um`, `p5_mirror.size_um`) replace those in the
+`slit.size_um`, `p5_mirror.size_um`, `full_stack.nominal_um`) replace those in the
 configs of the analyses that use them. The tuning tab shows them locked.
 
 Per type:
@@ -466,6 +467,25 @@ further from the line than `defect_um` is an `edge_defect`.
 The burned-in grid hides the pixels under it. A side under a grid line is bridged and flagged
 (`edge_hidden`, up to about 1 px off). On P5 the red and green channels are clipped on the mirror
 (`clipped_pct`), so its surface is judged on blue only.
+
+### Full Stack layer thicknesses
+
+Ported from ThicknessImageProcessor (`fullstack.py`, algorithms in `fullstack_profiles.py`). One
+stitched LEXT cross-section per device, about 1000 x 16000 px; the layers run horizontally. The image is
+levelled (the shear that gives the sharpest row profile). The glass is speckled with vertical streaks and
+glue and polymer are smooth, so a texture profile per row finds the six glass plates. Inside each
+interface the layer boundaries are thin dark lines: polymers lie between the deepest of them, and glues
+between a rising and a falling edge of the vertical intensity gradient (a glue too thin for a light
+interior is the dark band itself). P3_Polymer and P3P4_Glue are measured together. Each glass runs
+between the layers next to it. The layer list (top to bottom) is `layers:` in `configs/FS_thickness.yaml`.
+
+`results.csv` has per layer `<layer>_px` and `<layer>_method` (glass / lines / edges / dark band),
+`stack_px`, `tilt_deg` and `missing_layers`. The images carry no scale, so thicknesses are in px until
+`um_per_px` is set in the config. That adds `<layer>_um`, `stack_um`, and with a design thickness in
+`project.yaml` (`full_stack: nominal_um: {P2_Polymer: 20, ...}`) `<layer>_dev_um`, which the tolerances
+look at (switch them on in the wafer map). Until then the wafer map is coloured by missing layers only.
+The result image is drawn at half width and saved as JPEG (a full-size PNG is about 30 MB); the wafer
+map thumbnails are the squeezed stack (Raw) or a table of the layers (Result).
 
 ## Known limits
 

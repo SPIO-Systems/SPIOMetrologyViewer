@@ -29,6 +29,8 @@ class Analysis:
     annotate: object = None    # fn(BGR image) drawing extra things on the result image
     result_rgb: np.ndarray = None   # base of the result image if not `rgb` (lens3d: the residual map)
     plots: np.ndarray = None   # RGB image of per-image plots, written to plots/ by the batch run
+    thumbs: tuple = None       # (raw, result) RGB thumbnails if not made from the images (full stack: too tall)
+    overlay_jpg: bool = False  # write the result image as JPEG (full stack: a PNG of it is ~30 MB)
 
 
 def step_overlay(s, cfg):

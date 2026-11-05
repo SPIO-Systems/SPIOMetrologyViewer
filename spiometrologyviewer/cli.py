@@ -67,9 +67,14 @@ def run_batch(images, out, cfg, crops=True, progress=print, tuning_name=None, te
         m["code_version"] = __version__
         results.append(m)
         overlay = report.draw_overlay(a)
-        cv2.imwrite(str(out / "overlays" / f"{a.name}.png"), overlay)
-        cv2.imwrite(str(out / "thumbs" / f"{a.name}.jpg"), _thumb(a.rgb[..., ::-1], thumb_px))
-        cv2.imwrite(str(out / "thumbs_result" / f"{a.name}.jpg"), _thumb(overlay, thumb_px))
+        if a.overlay_jpg:
+            cv2.imwrite(str(out / "overlays" / f"{a.name}.jpg"), overlay, [cv2.IMWRITE_JPEG_QUALITY, 90])
+        else:
+            cv2.imwrite(str(out / "overlays" / f"{a.name}.png"), overlay)
+        raw_thumb, result_thumb = ((a.thumbs[0][..., ::-1], a.thumbs[1][..., ::-1]) if a.thumbs is not None
+                                   else (_thumb(a.rgb[..., ::-1], thumb_px), _thumb(overlay, thumb_px)))
+        cv2.imwrite(str(out / "thumbs" / f"{a.name}.jpg"), raw_thumb)
+        cv2.imwrite(str(out / "thumbs_result" / f"{a.name}.jpg"), result_thumb)
         if a.plots is not None:
             cv2.imwrite(str(out / "plots" / f"{a.name}.png"), a.plots[..., ::-1])
 
@@ -90,12 +95,14 @@ def run_batch(images, out, cfg, crops=True, progress=print, tuning_name=None, te
                  + (f"dirt {dirt:.2f}%  " if dirt is not None else "")
                  + (f"R {m['roc_um'] / 1000:.4f} mm  " if "roc_um" in m else "")
                  + (f"{m['width_um']:.1f} x {m['length_um']:.1f} um  " if "length_um" in m else "")
+                 + (f"stack {m['stack_px']:.0f} px, {m['missing_layers']} layers missing  " if "stack_px" in m else "")
                  + " ".join(f"{c}={k}" for c, k in sorted(counts.items()))
                  + (f"  offset x {m['offset_x_um']:+.1f} y {m['offset_y_um']:+.1f} um" if "offset_x_um" in m else ""))
 
+    empty = {"results.csv": ["image"], "objects.csv": ["object_id", "image", "class", "label", "cx", "cy"]}
     for name, rows in (("results.csv", results), ("objects.csv", objects)):
-        try:
-            pd.DataFrame(rows).round(3).to_csv(out / name, index=False)
+        try:   # with the header even without rows (a wafer without objects; the full stack has none)
+            pd.DataFrame(rows, columns=None if rows else empty[name]).round(3).to_csv(out / name, index=False)
         except PermissionError:
             raise PermissionError(f"Can't write {out / name}: is it open in Excel? Close it and run again.") from None
     io.save_config(out / "config_used.yaml", cfg, template=template)

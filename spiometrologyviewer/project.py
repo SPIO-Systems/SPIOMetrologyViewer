@@ -4,7 +4,7 @@
     measurements   the metrology folder (one subfolder per plate), relative to the project folder
     plates         plate tabs in order; a plate without measurement types gets a Browse tab
     wafer          units per wafer and the device position map
-    lens, mirror, aperture, slit, p5_mirror   design values, filled into the configs of the analyses that use them (DESIGN)
+    lens, mirror, aperture, slit, p5_mirror, full_stack   design values, filled into the configs of the analyses that use them (DESIGN)
     legacy         per plate, wafers scanned before the current folder layout (see measurements.py)
 
 A project folder without project.yaml (a workspace from before projects) is read with defaults: the
@@ -28,6 +28,7 @@ DESIGN = {
     ("aperture", "size_um"): {"p1_aperture": ("opening", "size_um")},
     ("slit", "size_um"): {"p1_slit": ("opening", "size_um")},
     ("p5_mirror", "size_um"): {"p5_mirror": ("mirror", "size_um")},
+    ("full_stack", "nominal_um"): {"full_stack": ("nominal_um",)},
 }
 
 

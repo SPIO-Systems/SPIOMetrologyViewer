@@ -115,6 +115,15 @@ class ImageView(tk.Canvas):
         self.ox, self.oy = (cw - w * self.scale) / 2, (ch - h * self.scale) / 2
         self.render()
 
+    def fit_width(self):
+        """Fit the image width to the window, at the top (the tall full-stack images)."""
+        if self.img is None:
+            return
+        self.auto_fit = False
+        self.scale = max(self.winfo_width(), 1) / self.img.size[0]
+        self.ox = self.oy = 0.0
+        self.render()
+
     def render(self):
         self.delete("all")
         if self.img is None:
@@ -307,7 +316,8 @@ class App:
         self.image_box.pack(side="left")
         self.image_box.bind("<<ComboboxSelected>>", lambda e: self.open_image(self.images[self.image_box.current()]))
         ttk.Button(bar, text=">", width=3, command=lambda: self._step_image(1)).pack(side="left")
-        ttk.Button(bar, text="Fit image", command=lambda: self.view.fit()).pack(side="left", padx=8)
+        ttk.Button(bar, text="Fit image", command=lambda: self.view.fit()).pack(side="left", padx=(8, 0))
+        ttk.Button(bar, text="Fit width", command=lambda: self.view.fit_width()).pack(side="left", padx=(4, 8))
         self.tuning_lbl = ttk.Label(bar, text="", font=("Segoe UI", 9, "bold"))
         self.tuning_lbl.pack(side="left", padx=(8, 0))
         self.status = ttk.Label(bar, text="", foreground="#444")

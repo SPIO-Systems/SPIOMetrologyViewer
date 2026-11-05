@@ -83,3 +83,10 @@ P5:
     tolerances: tolerances/P5_mirror.yaml
     output: output/P5/Mirror
     recursive: true
+
+Full Stack:
+  Layer thicknesses:   # LEXT cross-sections of the glued stack, one tall stitched image per device
+    images: FullStacks/*/ThicknessMeasurementsLext
+    config: configs/FS_thickness.yaml
+    tolerances: tolerances/FS_thickness.yaml
+    output: output/FullStack/LayerThicknesses

@@ -3,7 +3,7 @@
 name: NEW_PROJECT
 description: ""
 measurements: ..                 # metrology folder (one subfolder per plate), relative to this folder
-plates: [P1, P2, P3, P4, P5]     # plate tabs in this order; a plate without measurement types gets a Browse tab
+plates: [P1, P2, P3, P4, P5, Full Stack]   # plate tabs in this order; a plate without measurement types gets a Browse tab
 
 wafer:
   units: 33                      # devices per wafer (rows of the position map)
@@ -20,6 +20,9 @@ slit:
   size_um: [25.9, 500]           # slit width, length (P1 slit)
 p5_mirror:
   size_um: [2597, 2600]          # mirror width, length (P5 mirror)
+full_stack:
+  nominal_um: {}                 # design thickness per layer [um] (Full Stack layer thicknesses), e.g.
+                                 # {P1_Glass: 500, P1P2_Glue: 5, P2_Polymer: 20}; layers: see configs/FS_thickness.yaml
 
 # Wafers scanned before the current folder layout, per plate, e.g. P2: [17013_2_P2_05, ...]. They are
 # listed and can be browsed, but only measurement types with `legacy: only` analyse them.

@@ -64,7 +64,12 @@ def load_image(path):
     if suffix == ".lext":
         im = load_lext(path)["intensity"]
     elif suffix in (".tif", ".tiff"):
-        im = tifffile.imread(path)
+        try:
+            im = tifffile.imread(path)
+        except ValueError:   # compression tifffile can't decode without imagecodecs (LZW: the full-stack TIFFs)
+            from PIL import Image
+            with Image.open(path) as pil:
+                im = np.asarray(pil.convert("RGB") if pil.mode not in ("L", "I;16", "RGB") else pil)
     else:
         bgr = cv2.imdecode(np.fromfile(str(path), np.uint8), cv2.IMREAD_UNCHANGED)
         if bgr is None:

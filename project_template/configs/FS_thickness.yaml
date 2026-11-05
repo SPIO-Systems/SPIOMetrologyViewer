@@ -1,0 +1,73 @@
+# Full stack: thickness of every layer from a LEXT cross-section (one tall stitched image per device).
+# Ported from ThicknessImageProcessor. The tuning GUI's "Save parameters..." keeps this layout and its comments.
+
+# Pixel scale of the LEXT images. null: thicknesses in px only (no um columns, the tolerances have no data)
+um_per_px: null
+
+# Analysis type (see spiometrologyviewer/analyses.py)
+analysis: "full_stack"
+
+input:
+  image_glob: '*.tif*'
+  min_images: 5
+
+# Design thickness per layer [um], e.g. {P2_Polymer: 20, P1P2_Glue: 5} (project.yaml `full_stack` overrides
+# this). The tolerances look at the deviation from it.
+nominal_um: {}
+
+tilt:
+  auto: 1                             # 1: estimate the tilt, 0: use manual_deg
+  range_deg: 1.0                      # search +- this angle
+  manual_deg: 0.0
+
+texture:
+  measure: 0                          # 0: anisotropy (mean |d/dx| / mean |d/dy|), 1: high-pass energy
+  blur_sigma: 1.0                     # px, before the gradients (anisotropy)
+  highpass_sigma: 3.0                 # px (high-pass)
+  smooth_sigma: 15.0                  # px, along y
+  threshold: 0.85                     # rows below this x glass level mark an interface
+  extend: 0.95                        # ... which extends while below this (= threshold: no extension)
+  min_glass: 600                      # px; interfaces closer than this are joined
+  level_window: 1501                  # px, running 75th percentile = glass level (0: whole stack)
+  glass_percentile: 75
+  edge_margin: 300                    # px next to the air edges that are ignored (chipped glass)
+  air_threshold: 25                   # intensity above which the stack starts
+
+interfaces:
+  margin: 30                          # px into the glass above and below each interface
+
+lines:                                # dark lines = layer boundaries inside the interfaces (steps 4, 5)
+  line_sigma: 1.5                     # px, smoothing of the projected intensity along y
+  bg_window: 301                      # px, running median = background; depth = 1 - smoothed / background
+  min_depth: 0.15                     # a line is at least this much darker than the background (0..1)
+  min_steepness: 0.005                # depth / width at half depth: drops broad brightness waves
+  search: 150                         # px beyond the texture interface on both sides
+
+glue:                                 # glue = light between dark lines: rising -> falling intensity gradient
+  blur_sigma: 1.5                     # px, Gaussian blur before the vertical Sobel gradient
+  flank: 3                            # px; a dark line (darker than 1 - lines.min_depth) this close outside each edge
+  max_thickness: 150                  # px
+  min_contrast: 0.02                  # the glue is at least this much lighter than the dark lines (relative intensity)
+  max_band: 60                        # px; thin glue without a light interior = the dark band, at most this wide
+
+# Top to bottom. type: glass / glue / polymer / mixed (several layers measured together, between the
+# dark lines of the polymer step). The glass names label the plates; each glass runs between the
+# measured layers next to it. extract: false = not measured (only layers at the bottom of an interface).
+layers:
+  - {name: P1_Glass, type: glass}
+  - {name: P1P2_Glue, type: glue}
+  - {name: P2_Polymer, type: polymer}
+  - {name: P2_Glass, type: glass}
+  - {name: P2P3_Glue, type: glue}
+  - {name: P3_Glass, type: glass}
+  - {name: P3_Polymer+P3P4_Glue, type: mixed}   # P3 edge to top of P4_Polymer (thin polymer + ill-defined glue)
+  - {name: P4_Polymer, type: polymer}
+  - {name: P4_Glass, type: glass}
+  - {name: P4P5_Glue, type: glue}
+  - {name: P5_Glass, type: glass}
+  - {name: P5P6_Glue, type: glue}
+  - {name: P6_Glass, type: glass}
+
+output:
+  crop_px: 96
+  thumb_px: 256                       # size of the device thumbnails on the wafer map

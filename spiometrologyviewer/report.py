@@ -65,6 +65,10 @@ def draw_overlay(a):
             cv2.line(img, lc, mc, (0, 0, 255), 2)
 
     y = 22
+    if a.classes == ():   # no objects at all (full stack): no legend
+        if a.annotate is not None:
+            a.annotate(img)
+        return img
     legend = a.classes or [c for c in CLASS_COLORS if c in ("particle", "fibre", "residue", "unknown")
                            or (c == "edge_chip" and has_mirror)]
     for cls in legend:

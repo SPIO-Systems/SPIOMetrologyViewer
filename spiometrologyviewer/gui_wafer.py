@@ -53,12 +53,19 @@ def _pitch(values):
     return float(d[d > 0].min()) if (d > 0).any() else 1.0
 
 
+def overlay_path(out_dir, image):
+    """The batch run's result image of `image`: overlays/<image>.png, or .jpg (full stack: too large for PNG)."""
+    png = Path(out_dir) / "overlays" / f"{image}.png"
+    jpg = png.with_suffix(".jpg")
+    return jpg if not png.exists() and jpg.exists() else png
+
+
 def _make_thumb(out_dir, row, kind, raw_path, size=256):
     """Thumbnail for results without a thumbs folder (older batch runs): from the result image or
     the raw image, whichever is asked for, else the other one. Runs in a worker thread, so no
     tkinter here."""
     def result():
-        bgr = cv2.imread(str(out_dir / "overlays" / f"{row['image']}.png"))
+        bgr = cv2.imread(str(overlay_path(out_dir, row["image"])))
         return None if bgr is None else cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
     def raw():
@@ -163,7 +170,10 @@ class WaferMapTab(ttk.Frame):
         self.open_in_tuning = None   # set by the measurement tab: fn(image path)
         self.on_show = None          # set by the measurement tab: brings this tab to the front
         self.wafer_var = tk.StringVar()
-        self.color_by = tk.StringVar(value=next((m.label for m in self.metrics if m.follows), OVERALL))
+        # a value to look at (P4: fitted R) if its tolerance is on, else the overall status (full stack:
+        # thicknesses in px while the um deviations they follow are off)
+        on = {m.column for m in self.metrics if m.enabled}
+        self.color_by = tk.StringVar(value=next((m.label for m in self.metrics if m.follows in on), OVERALL))
         self.flip_y = tk.BooleanVar(value=False)
         self.thumb_kind = tk.StringVar(value="Raw")
         self.metric_rows = []
@@ -457,7 +467,8 @@ class WaferMapTab(ttk.Frame):
                 c.create_rectangle(x0, y0, x1, y1, fill=COLORS[st], outline="#555", tags=(tag,))
                 ix0, iy0, ix1, iy1 = x0 + border, y0 + border, x1 - border, y1 - strip
                 c.create_rectangle(ix0, iy0, ix1, iy1, fill="#2b2b2b", outline="", tags=(tag,))
-                photo = None if st == "nodata" else self._photo(r, kind, int(ix1 - ix0), int(iy1 - iy0))
+                photo = (None if _isnan(r.get("image", np.nan))   # no result; "nodata" may just be an empty metric
+                         else self._photo(r, kind, int(ix1 - ix0), int(iy1 - iy0)))
                 if photo is not None:
                     c.create_image((ix0 + ix1) / 2, (iy0 + iy1) / 2, image=photo, tags=(tag,))
                 else:
@@ -821,8 +832,9 @@ class DeviceWindow(tk.Toplevel):
     def _load_image(self, which):
         img = None
         if which in ("Result (outlined)", "Plots") and self.out_dir is not None:
-            folder = "overlays" if which == "Result (outlined)" else "plots"
-            bgr = cv2.imread(str(self.out_dir / folder / f"{self.row['image']}.png"))
+            path = (overlay_path(self.out_dir, self.row["image"]) if which == "Result (outlined)"
+                    else self.out_dir / "plots" / f"{self.row['image']}.png")
+            bgr = cv2.imread(str(path))
             img = None if bgr is None else cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
             if img is None and which == "Plots":
                 return None
