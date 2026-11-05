@@ -1,4 +1,5 @@
 """Devices on the wafer: positions, batch results per device and pass / warn / fail tolerances."""
+import re
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -83,9 +84,14 @@ def default_metrics(analysis="mirror"):
     return [replace(m) for m in DEFAULT_METRICS if analysis == "mirror" or m.column not in MIRROR_ONLY]
 
 
-def device_number(image_name):
-    """Last purely numeric '_'-separated part of the image name: 17013_2_P2_001_COLOR2D -> 1."""
-    nums = [t for t in Path(str(image_name)).stem.split("_") if t.isdigit()]
+def device_number(image_name, pattern=None):
+    """Last purely numeric '_'-separated part of the image name: 17013_2_P2_001_COLOR2D -> 1. With
+    `pattern` (a regex, matched ignoring case), its first group: U([0-9]+) on 17013_2_FS01_U06D_2 -> 6."""
+    stem = Path(str(image_name)).stem
+    if pattern:
+        m = re.search(pattern, stem, re.IGNORECASE)
+        return int(m.group(1)) if m else None
+    nums = [t for t in stem.split("_") if t.isdigit()]
     return int(nums[-1]) if nums else None
 
 

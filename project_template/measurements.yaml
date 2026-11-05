@@ -90,3 +90,8 @@ Full Stack:
     config: configs/FS_thickness.yaml
     tolerances: tolerances/FS_thickness.yaml
     output: output/FullStack/LayerThicknesses
+  Stereo microscope:   # Leica top-down images, one per device: wafer overview, no analysis yet
+    images: FullStacks/*/Leica Microscope Images
+    config: configs/FS_stereo.yaml
+    tolerances: tolerances/FS_stereo.yaml
+    output: output/FullStack/StereoMicroscope

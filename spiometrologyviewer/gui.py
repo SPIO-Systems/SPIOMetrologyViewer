@@ -709,9 +709,15 @@ class MeasurementTab(ttk.Frame):
 
         try:
             from . import analyses
-            analysis = analyses.name_of(self.m.load_config())
+            cfg = self.m.load_config()
+            analysis = analyses.name_of(cfg)
         except (OSError, ValueError) as e:   # ValueError: unknown analysis (config newer than the code?)
             ttk.Label(self, text=f"Can't read {self.m.config}:\n{e}", foreground="#c00000").pack(pady=20)
+            self.wafer_tab = False
+            return
+        if analysis == "none" and cfg.get("view") == "wafer":   # no analysis: the images on a wafer overview
+            from .gui_overview import WaferOverviewTab
+            WaferOverviewTab(self, self.m, cfg).pack(fill="both", expand=True)
             self.wafer_tab = False
             return
         if analysis == "none":   # plate not implemented yet: only browse its images

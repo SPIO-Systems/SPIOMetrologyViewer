@@ -1,0 +1,12 @@
+# Full stack: top-down Leica stereo microscope images, one per device (more than one: _1, _2, ...).
+# No analysis yet: they are shown as a wafer overview, a click opens the full resolution image.
+analysis: "none"
+view: "wafer"                         # browse as a wafer overview (default: step through the images)
+
+input:
+  image_glob: '*.tif'                 # not the Leica sidecar files (.anx, .cal.xml, .eax, .sbx)
+  min_images: 1
+  device_pattern: 'U(\d+)'            # device number in the file name: 17013_2_FS01_U06D_2 -> 6
+
+output:
+  thumb_px: 256                       # size of the cached thumbnails (output/<wafer>/thumbs)
